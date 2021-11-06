@@ -4,8 +4,6 @@ Directory Structure:
 * `requirements.txt`
 * `README.md`
 * `lizards/`
-  * `lib/`: Where all the environment and agent code will be
-  * `experiments/`
 
 Some helpful `pettingzoo` links:
 * [API for interacting with environments](https://www.pettingzoo.ml/api#interacting-with-environments)
