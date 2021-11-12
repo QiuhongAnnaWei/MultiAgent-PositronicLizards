@@ -1,5 +1,10 @@
 # MultiAgent-PositronicLizards
 
+```conda create -n lizards python=3.7``` <br>
+```conda activate lizards```<br>
+```pip install -r requirements.txt```<br>
+
+
 Directory Structure:
 * `requirements.txt`
 * `README.md`
