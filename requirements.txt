@@ -1,4 +1,2 @@
 pettingzoo==1.13.1
-simple-rl==0.811
 supersuit==3.3.1
-stable-baselines==2.10.2

@@ -1,7 +1,6 @@
 import numpy as np
-
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3
-from simple_rl.agents import QLearningAgent
+# from simple_rl.agents import QLearningAgent
 from stable_baselines.deepq.policies import MlpPolicy
 from stable_baselines import DQN
 import supersuit as ss
@@ -66,17 +65,18 @@ def test():
         action = env.action_space(agent).sample()
         env.step(action)
         print(agent)
-
     env.close()
 
 
 def test2():
     env = adversarial_pursuit_v3.env(map_size=15)
     env = to_parallel(env)
+    env = ss.pad_observations_v0(env)
+    env = ss.pad_action_space_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
-    env = ss.concat_vec_envs_v0(env, 8, num_cpus=1, base_class='stable_baselines3')
+    # env = ss.concat_vec_envs_v1(env, 1, num_cpus=1, base_class='stable_baselines3')
     model = DQN(MlpPolicy, env, verbose=1)
-    model.learn(total_timesteps=2000)
+    model.learn(total_timesteps=10)
     model.save('policy')
 
 
