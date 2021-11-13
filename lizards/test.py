@@ -1,10 +1,13 @@
-import numpy as np
-from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3
-# from simple_rl.agents import QLearningAgent
-from stable_baselines.deepq.policies import MlpPolicy
-from stable_baselines import DQN
 import supersuit as ss
+from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battlefield_v3
 from pettingzoo.utils.conversions import to_parallel
+from stable_baselines3 import PPO
+# from simple_rl.agents import QLearningAgent
+import multiprocessing
+import time
+
+multiprocessing.set_start_method("fork")
+
 
 
 def random_AP():
@@ -22,7 +25,7 @@ def random_AP():
 
 
 def random_TD():
-    env = tiger_deer_v3.env()
+    env = tiger_deer_v3.env(map_size=15)
     env.reset()
     for agent in env.agent_iter(max_iter=500):
         observation, reward, done, info = env.last()
@@ -32,24 +35,24 @@ def random_TD():
     env.close()
 
 
-def simple_agent_test_AP():
-    env = adversarial_pursuit_v3.env(map_size=15)
-    ag = QLearningAgent(list(range(13)))
-    agents = {'predator_0': ag}
-
-    env.reset()
-    for agent in env.agent_iter(max_iter=5000):
-        observation, reward, done, info = env.last()
-        if done:
-            action = None
-        else:
-            if agent in agents:
-                action = agents[agent].act(observation, reward)
-            else:
-                action = env.action_space(agent).sample()
-        env.step(action)
-        env.render(mode='human')
-    env.close()
+# def simple_agent_test_AP():
+#     env = adversarial_pursuit_v3.env(map_size=15)
+#     ag = QLearningAgent(list(range(13)))
+#     agents = {'predator_0': ag}
+#
+#     env.reset()
+#     for agent in env.agent_iter(max_iter=5000):
+#         observation, reward, done, info = env.last()
+#         if done:
+#             action = None
+#         else:
+#             if agent in agents:
+#                 action = agents[agent].act(observation, reward)
+#             else:
+#                 action = env.action_space(agent).sample()
+#         env.step(action)
+#         env.render(mode='human')
+#     env.close()
 
 
 def test():
@@ -80,5 +83,30 @@ def test2():
     model.save('policy')
 
 
+def train_battle_policy():
+    env = battle_v3.env(map_size=12)
+    env = ss.pettingzoo_env_to_vec_env_v1(to_parallel(env))
+    env = ss.concat_vec_envs_v1(env, 4, num_cpus=1, base_class='stable_baselines3')
+    model = PPO("MlpPolicy", env, verbose=3)
+    model.learn(total_timesteps=1000, log_interval=4)
+    model.save("bat_policy")
+
+
+def run_saved_battle_policy():
+    env = battle_v3.env(map_size=12)
+    env = ss.pettingzoo_env_to_vec_env_v1(to_parallel(env))
+    env = ss.concat_vec_envs_v1(env, 4, num_cpus=1, base_class='stable_baselines3')
+    model = PPO.load("bat_policy")
+
+    obs = env.reset()
+    for _ in range(100):
+        action, _states = model.predict(obs)
+        obs, rewards, dones, info = env.step(action)
+        env.render()
+        # time.sleep(0.1)
+        print(rewards)
+    env.close()
+
+
 if __name__ == "__main__":
-    test2()
+    run_saved_battle_policy()
