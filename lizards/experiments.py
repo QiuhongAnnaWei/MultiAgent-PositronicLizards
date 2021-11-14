@@ -8,9 +8,14 @@ env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': ti
 
 
 def experiment_1():
-    battlefield = convert_to_sb3_env(battlefield_v3.env())
-    model = train(battlefield, PPO, time_steps=100000, save_name='trained_policies/battlefield-10e5-V1')
-    evaluate_model(battlefield, model, render=True)
+    battlefield = convert_to_sb3_env(battlefield_v3.env(dead_penalty=-10.0))
+    model = train(battlefield, PPO, time_steps=1000000, save_name='trained_policies/battlefield-10e6-V1')
+    evaluate_model(battlefield, model)
+
+
+def view_results():
+    evaluate_model(convert_to_sb3_env(battlefield_v3.env(dead_penalty=-10.0)),
+                   PPO.load('trained_policies/battlefield-10e6-V1'))
 
 
 if __name__ == "__main__":
