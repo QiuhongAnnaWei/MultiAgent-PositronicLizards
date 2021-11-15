@@ -6,6 +6,7 @@ from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 
 multiprocessing.set_start_method("fork")
+# From supersuit docs: On MacOS with python>=3.8, need to use fork multiprocessing instead of spawn multiprocessing
 
 
 def convert_to_sb3_env(env, num_cpus=1):
