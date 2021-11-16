@@ -61,7 +61,3 @@ def evaluate_model(sb3_env, model, render=True, time_steps=1000):
         # time.sleep(0.1)
         # print(rewards)
     sb3_env.close()
-
-
-# def test_parallel_env(env):
-#     pe

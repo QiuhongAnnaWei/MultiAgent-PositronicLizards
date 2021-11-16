@@ -1,10 +1,12 @@
 import supersuit as ss
-from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battlefield_v3
+from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battlefield_v3, battle_v3
 from pettingzoo.utils.conversions import to_parallel
 from stable_baselines3 import PPO
 # from simple_rl.agents import QLearningAgent
 import multiprocessing
 import time
+import ray.rllib.agents.pg as pg
+from ray.tune.registry import register_env
 
 multiprocessing.set_start_method("fork")
 
@@ -108,5 +110,37 @@ def run_saved_battle_policy():
     env.close()
 
 
+def ray_experiment1():
+    env_proto = battle_v3.parallel_env(map_size=12)
+
+    def env_creator():
+        return battle_v3.parallel_env
+
+    env = env_creator()
+    register_env('battle', lambda config: env(map_size=12))
+
+    # "car1": (None, car_obs_space, car_act_space, {"gamma": 0.85}),
+
+    # policy_dict = dict()
+    # for agent in env.agents:
+    #     policy_dict[agent] = (None, env.observation_space(agent), env.action_space(agent), {"gamma": 0.95})
+
+    policy_dict = dict()
+    unique_agents = set([agent.split('_')[0] for agent in env_proto.agents])
+    for agent in unique_agents:
+        policy_dict[agent] = (None, env_proto.observation_space(f"{agent}_0"), env_proto.action_space(f"{agent}_0"), {"gamma": 0.95})
+
+    trainer = pg.PGTrainer(env='battle', config={
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn":
+                lambda agent_name: "red" if agent_name.startswith("red") else "blue"
+        }
+    })
+
+    while True:
+        print(trainer.train())
+
+
 if __name__ == "__main__":
-    run_saved_battle_policy()
+    ray_experiment1()
