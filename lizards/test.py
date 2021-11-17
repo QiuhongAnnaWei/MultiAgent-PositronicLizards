@@ -136,7 +136,10 @@ def ray_experiment1():
             "conv_filters": [
                 [21, 13, 1]
             ]
-        }
+        },
+        "num_gpus": 1,
+        "num_gpus_per_worker": 1,
+        "num_workers": 1
     })
 
     while True:

@@ -4,6 +4,9 @@ import multiprocessing
 import time
 from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
+from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
+from ray.tune.registry import register_env
+
 
 multiprocessing.set_start_method("fork")
 # From supersuit docs: On MacOS with python>=3.8, need to use fork multiprocessing instead of spawn multiprocessing
@@ -61,3 +64,38 @@ def evaluate_model(sb3_env, model, render=True, time_steps=1000):
         # time.sleep(0.1)
         # print(rewards)
     sb3_env.close()
+
+
+def auto_register_env_ray(env_name, env):
+    """
+    Registers a pettingzoo environment with ray
+    :param env_name: desired name of environment in registry
+    :param env: pettingzoo environment
+    :return: None
+    """
+    def env_creator(config):
+        return ss.normalize_obs_v0(env.parallel_env(**config), env_min=0, env_max=1)
+
+    register_env(env_name, lambda config: ParallelPettingZooEnv(env_creator(config)))
+
+
+def get_policy_config(env, env_config=None, method='color'):
+    """
+    Gets some objects needed for instantiating a ray Trainer
+    :param env: pettingzoo environment
+    :param env_config: [optional] dictionary of parameters to pass to environment
+    :param method: [optional] split policies by color, individual
+    :return: policy_dict, policy_fn, observation_space.shape
+    """
+    if env_config is None:
+        env_config = dict()
+    empty_env = env.parallel_env(**env_config)
+
+    if method == 'color':
+        observation_space = empty_env.observation_space(empty_env.possible_agents[0])
+        action_space = empty_env.action_space(empty_env.possible_agents[0])
+        policy_dict = {"red": (None, observation_space, action_space, dict()),
+                       "blue": (None, observation_space, action_space, dict())}
+        policy_fn = lambda agent_name: "red" if agent_name.startswith("red") else "blue"
+
+        return policy_dict, policy_fn, observation_space.shape
