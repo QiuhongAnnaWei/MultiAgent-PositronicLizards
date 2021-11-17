@@ -5,8 +5,9 @@ from stable_baselines3 import PPO
 # from simple_rl.agents import QLearningAgent
 import multiprocessing
 import time
-import ray.rllib.agents.pg as pg
+import ray.rllib.agents.ppo as ppo
 from ray.tune.registry import register_env
+from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 
 multiprocessing.set_start_method("fork")
 
@@ -113,33 +114,35 @@ def run_saved_battle_policy():
 def ray_experiment1():
     env_proto = battle_v3.parallel_env(map_size=12)
 
-    def env_creator():
-        return battle_v3.parallel_env
+    def env_creator(config):
+        return battle_v3.parallel_env(map_size=12)
 
-    env = env_creator()
-    register_env('battle', lambda config: env(map_size=12))
+    register_env('battle', lambda config: ParallelPettingZooEnv(env_creator(config)))
 
     # "car1": (None, car_obs_space, car_act_space, {"gamma": 0.85}),
-
-    # policy_dict = dict()
-    # for agent in env.agents:
-    #     policy_dict[agent] = (None, env.observation_space(agent), env.action_space(agent), {"gamma": 0.95})
 
     policy_dict = dict()
     unique_agents = set([agent.split('_')[0] for agent in env_proto.agents])
     for agent in unique_agents:
         policy_dict[agent] = (None, env_proto.observation_space(f"{agent}_0"), env_proto.action_space(f"{agent}_0"), {"gamma": 0.95})
 
-    trainer = pg.PGTrainer(env='battle', config={
+    trainer = ppo.PPOTrainer(env='battle', config={
         "multiagent": {
             "policies": policy_dict,
             "policy_mapping_fn":
                 lambda agent_name: "red" if agent_name.startswith("red") else "blue"
+        },
+        "model": {
+            "conv_filters": [
+                [21, 13, 1]
+            ]
         }
     })
 
     while True:
         print(trainer.train())
+
+    # TODO: We nee tf1 which requires python 3.7
 
 
 if __name__ == "__main__":
