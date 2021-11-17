@@ -147,6 +147,15 @@ def ray_experiment1():
 
     # TODO: We nee tf1 which requires python 3.7
 
+def ss_pad_test():
+    env = adversarial_pursuit_v3.parallel_env(map_size=16)
+
+    # env = ss.pad_observations_v0(env)
+
+    obs = env.reset()
+    print([ob.shape for ob in obs.values()])
+    # print(obs[env.agents[0]].shape)
+    # print(obs[env.agents[1]].shape)
 
 if __name__ == "__main__":
-    ray_experiment1()
+    ss_pad_test()

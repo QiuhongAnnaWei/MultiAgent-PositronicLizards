@@ -3,6 +3,9 @@ from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 import ray.rllib.agents.ppo as ppo
 import ray.rllib.agents.pg as pg
+from gym.spaces import Box, Discrete
+import numpy as np
+import time
 
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
@@ -22,7 +25,11 @@ def view_results():
 
 def ray_experiment_1():
     auto_register_env_ray("battle", battle_v3)
-    policy_dict, policy_fn, obs_shape = get_policy_config(battle_v3)
+
+    obs = Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)
+    act = Discrete(21)
+
+    policy_dict, policy_fn = get_policy_config(battle_v3, action_space=act, obs_space=obs)
 
     trainer = ppo.PPOTrainer(env='battle', config={
         "multiagent": {
@@ -37,12 +44,44 @@ def ray_experiment_1():
         "env_config": {
             "map_size": 12
         },
-        "num_gpus": 1
+        "num_gpus": 0.8
     })
 
     for i in range(10):
         print(trainer.train())
 
 
+def ray_experiment_AP():
+    auto_register_env_ray("adversarial-pursuit", adversarial_pursuit_v3)
+
+    obs = Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)
+    act = Discrete(13)
+
+    policy_dict, policy_fn = get_policy_config(adversarial_pursuit_v3, action_space=act, obs_space=obs,
+                                               method='predator_prey')
+
+    trainer = ppo.PPOTrainer(env='adversarial-pursuit', config={
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn": policy_fn
+        },
+        "model": {
+            "conv_filters": [
+                [13, 10, 1]
+            ]
+        },
+        "env_config": {
+            "map_size": 30
+        },
+        "num_gpus": 0.8
+    })
+
+    start = time.time()
+    for i in range(20):
+        start = time.time()
+        print(trainer.train())
+        print(f"This batch took {time.time()-start} seconds")
+
+
 if __name__ == "__main__":
-    ray_experiment_1()
+    ray_experiment_AP()

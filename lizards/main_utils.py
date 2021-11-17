@@ -6,6 +6,7 @@ from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
+from gym.spaces import Box
 
 
 multiprocessing.set_start_method("fork")
@@ -74,28 +75,37 @@ def auto_register_env_ray(env_name, env):
     :return: None
     """
     def env_creator(config):
-        return ss.normalize_obs_v0(env.parallel_env(**config), env_min=0, env_max=1)
+        penv = env.parallel_env(**config)
+        penv = ss.pad_observations_v0(penv)
+        penv = ss.pad_action_space_v0(penv)
+        # penv = ss.normalize_obs_v0(penv, env_min=0, env_max=1)
+        return penv
 
     register_env(env_name, lambda config: ParallelPettingZooEnv(env_creator(config)))
 
 
-def get_policy_config(env, env_config=None, method='color'):
+def get_policy_config(env, action_space, obs_space, method='red_blue'):
     """
     Gets some objects needed for instantiating a ray Trainer
     :param env: pettingzoo environment
-    :param env_config: [optional] dictionary of parameters to pass to environment
-    :param method: [optional] split policies by color, individual
+    :param action_space: a gym Space (largest of all agents)
+    :param obs_space: a gym Space (largest of all agents)
+    :param method: [optional] split policies by color, species
     :return: policy_dict, policy_fn, observation_space.shape
     """
-    if env_config is None:
-        env_config = dict()
-    empty_env = env.parallel_env(**env_config)
+    team_1 = None
+    team_2 = None
 
-    if method == 'color':
-        observation_space = empty_env.observation_space(empty_env.possible_agents[0])
-        action_space = empty_env.action_space(empty_env.possible_agents[0])
-        policy_dict = {"red": (None, observation_space, action_space, dict()),
-                       "blue": (None, observation_space, action_space, dict())}
-        policy_fn = lambda agent_name: "red" if agent_name.startswith("red") else "blue"
+    if method == 'red_blue':
+        team_1 = "red"
+        team_2 = "blue"
 
-        return policy_dict, policy_fn, observation_space.shape
+    elif method == 'predator_prey':
+        team_1 = "predator"
+        team_2 = "prey"
+
+    policy_dict = {team_1: (None, obs_space, action_space, dict()),
+                   team_2: (None, obs_space, action_space, dict())}
+    policy_fn = lambda agent_id, episode, **kwargs: team_1 if agent_id.startswith(team_1) else team_2
+
+    return policy_dict, policy_fn
