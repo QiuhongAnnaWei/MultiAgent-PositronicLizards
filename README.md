@@ -14,7 +14,7 @@ pip install -r requirements.txt
 ```pip install git+https://github.com/DLR-RM/stable-baselines3``` (see [here](https://github.com/hill-a/stable-baselines/issues/849) for reason for separate pip)<br> 
 ```pip install magent```
 
-
+***
 ## Directory Structure:
 ```
 root/
@@ -27,7 +27,7 @@ root/
   requirements.txt
 ```
 
-
+***
 ## Helpful Resources
 
 Helpful `pettingzoo` links:
@@ -52,14 +52,14 @@ Contribution guidelines:
 * Update the requirements.txt
 * Update the README as necessary
 
-
+***
 ## Logs
 
-## 11/6/21 - Ben and Yongming
+### 11/6/21 - Ben and Yongming
 * Rendered random agents playing Adversarial Pursuit
 * Rendered random agents playing Tiger Deer
 
-## 11/13/21 - Ben
+### 11/13/21 - Ben
 * Migrated to stable-baselines3. Some important links:
   * [Docs - examples](https://stable-baselines3.readthedocs.io/en/master/guide/examples.html)
   * [Docs - PPO](https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html)
