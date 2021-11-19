@@ -7,6 +7,7 @@ from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, 
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 from gym.spaces import Box
+import numpy as np
 
 
 multiprocessing.set_start_method("fork")
@@ -111,3 +112,41 @@ def get_policy_config(env, action_space, obs_space, method='red_blue'):
     policy_fn = lambda agent_id, episode, **kwargs: team_1 if agent_id.startswith(team_1) else team_2
 
     return policy_dict, policy_fn
+
+def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
+    """
+    Visualize from given checkpoint. 
+    Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
+    :param ckptpath: checkpoint to load to generate visualizations
+    :param trainer: trainer associated with the checkpoint
+    :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
+    :param config: config dictionary for the environment (e.g. {"map_size":30})
+    :param policy_fn: policy_fn returned from get_policy_config()
+    :return: None
+    """
+    trainer.restore(checkpoint)
+    env = env.env(**config)
+    env = ss.pad_observations_v0(env)
+    env = ss.pad_action_space_v0(env)
+    env.reset()
+    for agent in env.agent_iter():
+        observation, reward, done, info = env.last()
+        if done:
+            action = None
+        else:
+            agentpolicy = policy_fn(agent, None) # map agent id to policy id
+            # print("get_policy: ", trainer.get_policy(agent))
+            policy = trainer.get_policy(agentpolicy)
+            batch_obs = {
+                'obs': np.expand_dims(observation, 0) # (10,10,5) -> (1,10,10,5)
+                # { 
+                #     'observation': np.expand_dims(observation, 0),
+                #     'action_mask': np.expand_dims(observation['action_mask'], 0)
+                # }
+            }
+            batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
+            single_action = batched_action[0]
+            action = single_action
+            # print(f"action={action}")
+            env.step(action)
+            env.render(mode='human') 
