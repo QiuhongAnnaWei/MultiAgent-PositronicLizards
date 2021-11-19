@@ -11,11 +11,9 @@ pip install -r requirements.txt
 ```conda create -n lizards python=3.7``` <br>
 ```conda activate lizards```<br>
 ```pip install -r requirements.txt```<br>
-<!-- ```pip install git+https://github.com/hill-a/stable-baselines``` (see [here](https://github.com/hill-a/stable-baselines/issues/849) for reason for separate pip)<br>  -->
 ```pip install git+https://github.com/DLR-RM/stable-baselines3``` (see [here](https://github.com/hill-a/stable-baselines/issues/849) for reason for separate pip)<br> 
 ```pip install magent```
- <!-- stable-baselic3nes==2.10.2 -->
-<!-- simple-rl==0.811 -->
+
 
 ## Directory Structure:
 ```
@@ -30,11 +28,22 @@ root/
 ```
 
 
-Some helpful `pettingzoo` links:
+## Helpful Resources
+
+Helpful `pettingzoo` links:
 * [API for interacting with environments](https://www.pettingzoo.ml/api#interacting-with-environments)
 * We are running environments from the [MAgent](https://www.pettingzoo.ml/magent) codebase:
   * [Tiger Deer](https://www.pettingzoo.ml/magent/tiger_deer)
   * [Adversarial Pursuit](https://www.pettingzoo.ml/magent/adversarial_pursuit)
+
+Helpful `ray` links:
+* [rlib training](https://docs.ray.io/en/latest/rllib-training.html)
+* [ray docs](https://docs.ray.io/en/releases-0.7.3/index.html)
+* [rlib agents source code](https://github.com/ray-project/ray/tree/master/rllib/agents)
+
+Helpful other links
+* [SuperSuit](https://github.com/Farama-Foundation/SuperSuit)
+* [Pettingzoo and SuperSuit](https://www.pettingzoo.ml/api#supersuit)
 
 
 Contribution guidelines:
@@ -42,6 +51,9 @@ Contribution guidelines:
 * Make the commit messages descriptive
 * Update the requirements.txt
 * Update the README as necessary
+
+
+## Logs
 
 ## 11/6/21 - Ben and Yongming
 * Rendered random agents playing Adversarial Pursuit

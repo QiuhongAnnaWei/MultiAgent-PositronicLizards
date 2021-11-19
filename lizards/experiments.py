@@ -73,6 +73,10 @@ def ray_experiment_AP():
         "env_config": {
             "map_size": 30
         },
+        ## For CPUs:
+        # "num_gpus": 0,
+        # "num_cpus_per_worker": 1,
+        ## For GPUS:
         "num_gpus": 0.8
     })
 
@@ -80,7 +84,7 @@ def ray_experiment_AP():
     for i in range(20):
         start = time.time()
         print(trainer.train())
-        print(f"This batch took {time.time()-start} seconds")
+        print(f"batch {i}: took {time.time()-start} seconds")
 
 
 if __name__ == "__main__":

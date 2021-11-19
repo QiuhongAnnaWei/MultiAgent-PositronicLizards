@@ -91,7 +91,7 @@ def get_policy_config(env, action_space, obs_space, method='red_blue'):
     :param action_space: a gym Space (largest of all agents)
     :param obs_space: a gym Space (largest of all agents)
     :param method: [optional] split policies by color, species
-    :return: policy_dict, policy_fn, observation_space.shape
+    :return: policy_dict, policy_fn
     """
     team_1 = None
     team_2 = None
@@ -104,8 +104,10 @@ def get_policy_config(env, action_space, obs_space, method='red_blue'):
         team_1 = "predator"
         team_2 = "prey"
 
+    # policies: {policy ids: (policy_cls, obs_space, act_space, config)}
     policy_dict = {team_1: (None, obs_space, action_space, dict()),
                    team_2: (None, obs_space, action_space, dict())}
+    # policy_mapping_fn: map agent ids -> policy ids
     policy_fn = lambda agent_id, episode, **kwargs: team_1 if agent_id.startswith(team_1) else team_2
 
     return policy_dict, policy_fn
