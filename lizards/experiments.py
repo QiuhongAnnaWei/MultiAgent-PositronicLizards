@@ -63,6 +63,8 @@ def ray_experiment_AP():
     policy_dict, policy_fn = get_policy_config(adversarial_pursuit_v3, action_space=act, obs_space=obs,
                                                method='predator_prey')
 
+    env_kwargs = {"map_size": 30}
+
     trainer = ppo.PPOTrainer(config={
         "env": 'adversarial-pursuit',
         "multiagent": {
@@ -74,27 +76,27 @@ def ray_experiment_AP():
                 [13, 10, 1]
             ]
         },
-        "env_config": { # passed to the env creator as an EnvContext object 
-            "map_size": 30
-        },
+        "env_config": env_kwargs, # passed to the env creator as an EnvContext object
         ## For CPUs:
         # "num_gpus": 0,
         # "num_cpus_per_worker": 1,
         ## For GPUS:
-        "num_gpus": 0.8,
+        "num_gpus": 0.9,
     })
-
+    checkpoint = None
     start = time.time()
-    for i in range(1):
+    for i in range(1, 11):
+        print(f"Starting training on batch {i}")
         start = time.time()
         result = trainer.train()
         print(pretty_print(result))
         print(f"batch {i}: took {time.time()-start} seconds")
-        if i % 100 == 0:
+        if i % 10 == 0:
             checkpoint = trainer.save()
             print("checkpoint saved at", checkpoint)
 
-    render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, {"map_size":30}, policy_fn)
+    if checkpoint:
+        render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn)
 
 
 if __name__ == "__main__":

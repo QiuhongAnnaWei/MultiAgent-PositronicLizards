@@ -113,11 +113,12 @@ def get_policy_config(env, action_space, obs_space, method='red_blue'):
 
     return policy_dict, policy_fn
 
+
 def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
     """
     Visualize from given checkpoint. 
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
-    :param ckptpath: checkpoint to load to generate visualizations
+    :param checkpoint: checkpoint to load to generate visualizations
     :param trainer: trainer associated with the checkpoint
     :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
     :param config: config dictionary for the environment (e.g. {"map_size":30})
@@ -148,5 +149,5 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
             single_action = batched_action[0]
             action = single_action
             # print(f"action={action}")
-            env.step(action)
-            env.render(mode='human') 
+        env.step(action)
+        env.render(mode='human')
