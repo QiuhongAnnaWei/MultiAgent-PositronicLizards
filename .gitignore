@@ -3,3 +3,4 @@
 venv/
 lizard-env/
 logs/
+__pycache__/*

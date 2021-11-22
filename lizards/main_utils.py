@@ -6,6 +6,7 @@ from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
+from ray.tune.logger import pretty_print
 from gym.spaces import Box
 import numpy as np
 
@@ -85,7 +86,7 @@ def auto_register_env_ray(env_name, env):
     register_env(env_name, lambda config: ParallelPettingZooEnv(env_creator(config)))
 
 
-def get_policy_config(env, action_space, obs_space, method='red_blue'):
+def get_policy_config(action_space, obs_space, method='red_blue'):
     """
     Gets some objects needed for instantiating a ray Trainer
     :param env: pettingzoo environment
@@ -114,11 +115,36 @@ def get_policy_config(env, action_space, obs_space, method='red_blue'):
     return policy_dict, policy_fn
 
 
+def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
+    """
+    Trains a Ray Trainer and saves checkpoints
+    :param trainer: a Ray Trainer
+    :param num_iters: (optional) number of training iterations
+    :param log_intervals: (optional) saves a checkpoint for every 'log_intervals' training iterations
+    :param log_dir: (optional) file path to save checkpoints
+    :return: file path of the final checkpoint
+    """
+    checkpoint = None
+    true_start = time.time()
+    for i in range(num_iters):
+        print(f"Starting training on batch {i}...")
+        start = time.time()
+        result = trainer.train()
+        print(pretty_print(result))
+        print(f"batch {i}: took {time.time() - start} seconds")
+        if i % log_intervals == 0:
+            checkpoint = trainer.save(log_dir)
+            print("checkpoint saved at", checkpoint)
+    print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
+
+    return checkpoint
+
+
 def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
     """
     Visualize from given checkpoint. 
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
-    :param checkpoint: checkpoint to load to generate visualizations
+    :param checkpoint: a file path to a checkpoint to load to generate visualizations
     :param trainer: trainer associated with the checkpoint
     :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
     :param config: config dictionary for the environment (e.g. {"map_size":30})
