@@ -151,3 +151,4 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
             # print(f"action={action}")
         env.step(action)
         env.render(mode='human')
+    env.close()

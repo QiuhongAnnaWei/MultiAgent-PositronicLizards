@@ -84,18 +84,20 @@ def ray_experiment_AP():
         "num_gpus": 0.9,
     })
     checkpoint = None
-    start = time.time()
-    for i in range(1, 11):
+    true_start = time.time()
+    # TODO: Probably want to turn this training loop into a main_util function
+    for i in range(101):
         print(f"Starting training on batch {i}")
         start = time.time()
         result = trainer.train()
         print(pretty_print(result))
         print(f"batch {i}: took {time.time()-start} seconds")
-        if i % 10 == 0:
+        if i % 25 == 0:
             checkpoint = trainer.save()
             print("checkpoint saved at", checkpoint)
+    print(f"Full training took {(time.time()-true_start)/60.0} minutes")
 
-    if checkpoint:
+    if checkpoint and False:
         render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn)
 
 
