@@ -13,7 +13,7 @@ import json
 import pickle
 from tensorflow import Tensor
 import tensorflow as tf
-
+import argparse
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
                  'battlefield': battlefield_v3}
@@ -58,7 +58,7 @@ def ray_experiment_1():
         print(trainer.train())
 
 
-def ray_experiment_AP_training():
+def ray_experiment_AP_training(*args, gpu=True):
     auto_register_env_ray("adversarial-pursuit", adversarial_pursuit_v3)
 
     obs = Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)
@@ -68,24 +68,27 @@ def ray_experiment_AP_training():
 
     env_kwargs = {"map_size": 30}
 
-    trainer = ppo.PPOTrainer(config={
-        "env": 'adversarial-pursuit',
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [13, 10, 1]
-            ]
-        },
-        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        ## For CPUs:
-        # "num_gpus": 0,
-        # "num_cpus_per_worker": 1,
-        ## For GPUS:
-        "num_gpus": 0.9,
-    })
+    trainer_config = {
+                        "env": 'adversarial-pursuit',
+                        "multiagent": {
+                            "policies": policy_dict,
+                            "policy_mapping_fn": policy_fn
+                        },
+                        "model": {
+                            "conv_filters": [
+                                [13, 10, 1]
+                            ]
+                        },
+                        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
+    }
+
+    if gpu:
+        trainer_config["num_gpus"] = 0.9
+    else:  ## For CPUs:
+        trainer_config["num_gpus"] = 0
+        trainer_config["num_cpus_per_worker"] = 1
+
+    trainer = ppo.PPOTrainer(config=trainer_config)
 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/Some_checkpoint_filename')
 
@@ -95,5 +98,16 @@ def ray_experiment_AP_training():
         render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-gpu", type=str, default="yes", help="whether to use gpu (yes/no; default is 'yes')", choices=("yes", "y", "no", "n"))
+  
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == "__main__":
-    ray_experiment_AP_training()
+    args = parse_args()
+    gpu_flag = True if (args.gpu.lower() in ("yes", "y", '"yes"', '"y')) else False
+
+    ray_experiment_AP_training(gpu=gpu_flag)
