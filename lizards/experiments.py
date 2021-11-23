@@ -99,15 +99,17 @@ def ray_experiment_AP_training(*args, gpu=True):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-gpu", type=str, default="yes", help="whether to use gpu (yes/no; default is 'yes')", choices=("yes", "y", "no", "n"))
-  
+    parser = argparse.ArgumentParser()      
+
+    parser.add_argument('--gpu', dest='gpu', action='store_true')
+    parser.add_argument('--no-gpu', dest='gpu', action='store_false')
+    parser.set_defaults(gpu=True)
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
     args = parse_args()
-    gpu_flag = True if (args.gpu.lower() in ("yes", "y", '"yes"', '"y')) else False
-
-    ray_experiment_AP_training(gpu=gpu_flag)
+ 
+    ray_experiment_AP_training(gpu=args.gpu)
