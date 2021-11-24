@@ -145,7 +145,7 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
 
 def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn, max_iter=2**8, savefile=True):
     """
-    Visualize from given checkpoint. 
+    Visualize from given checkpoint.
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
     :param checkpoint: a file path to a checkpoint to load to generate visualizations
     :param trainer: trainer associated with the checkpoint
@@ -166,7 +166,7 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn, max_iter
     # save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}-.mp4')
     # print("\nSaving video to:", save_path, "\n")
     # video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 20, (240, 255))
-    
+
     # img = np.zeros((240, 255))
     for agent in env.agent_iter(max_iter=max_iter):
         observation, reward, done, info = env.last()
@@ -178,7 +178,7 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn, max_iter
             policy = trainer.get_policy(agentpolicy)
             batch_obs = {
                 'obs': np.expand_dims(observation, 0) # (10,10,5) -> (1,10,10,5)
-                # { 
+                # {
                 #     'observation': np.expand_dims(observation, 0),
                 #     'action_mask': np.expand_dims(observation['action_mask'], 0)
                 # }
@@ -201,7 +201,7 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn, max_iter
             if (i-1) % (env.num_agents) == 0: #33
                 print("i=", i)
                 frame_list.append(PIL.Image.fromarray(env.render(mode='rgb_array')))
-                ### i = 0, 34, 67, 100, 133, 166, 199, 232 
+                ### i = 0, 34, 67, 100, 133, 166, 199, 232
         else:
             env.render(mode='human')
             ## 1. no clicking needed
@@ -229,12 +229,64 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn, max_iter
         save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}@.gif')
         print("\nSaving gif to:", save_path)
         frame_list[0].save(save_path, save_all=True, append_images=frame_list[1:], duration=100, loop=0)
-        
+
         import cv2
         save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}@.mp4')
         print("\nSaving video to:", save_path, "\n")
         video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (frame_list[0].width,frame_list[0].height)) # cv2.VideoWriter_fourcc(*'XVID')
-        
+
         for i, image in enumerate(frame_list):
             video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
             frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}@{i}.jpg'))
+
+
+def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=500):
+    """
+    Evaluates a set of policies on an environment
+    :param checkpoint: a file path to a checkpoint to load to generate visualizations
+    :param trainer: trainer associated with the checkpoint
+    :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
+    :param env_config: config dictionary for the environment (e.g. {"map_size":30})
+    :param policy_fn: policy_fn returned from get_policy_config()
+    :param gamma: gamma
+    :param max_iter: number of iterations to evaluate policies
+    :return: dictionary of cumulative discounted rewards per each policy in the trainer
+    """
+    trainer.restore(checkpoint)
+    env = env.env(**env_config)
+    env = ss.pad_observations_v0(env)
+    env = ss.pad_action_space_v0(env)
+
+    rewards = dict()
+    gamma_mul = 1.0 * gamma
+    first_agent = None
+
+    env.reset()
+    for agent in env.agent_iter(max_iter=max_iter):
+        if first_agent and first_agent == agent:
+            gamma_mul *= gamma
+        elif not first_agent:
+            first_agent = agent
+
+        observation, reward, done, info = env.last()
+        if done:
+            action = None
+        else:
+            agent_policy = policy_fn(agent, None)  # map agent id to policy id
+            policy = trainer.get_policy(agent_policy)
+            batch_obs = {
+                'obs': np.expand_dims(observation, 0)  # (10,10,5) -> (1,10,10,5)
+            }
+            batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
+            single_action = batched_action[0]
+            action = single_action
+
+            if agent_policy in rewards:
+                rewards[agent_policy] += reward * gamma_mul
+            else:
+                rewards[agent_policy] = reward * gamma_mul
+        env.step(action)
+
+    env.close()
+    return rewards
+

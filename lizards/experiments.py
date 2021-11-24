@@ -51,7 +51,8 @@ def ray_experiment_1():
         "env_config": {
             "map_size": 12
         },
-        "num_gpus": 0.8
+        "num_gpus": 0.9,
+        "rollout_fragment_length": 100,
     })
 
     for i in range(10):
@@ -69,17 +70,18 @@ def ray_experiment_AP_training(*args, gpu=True):
     env_kwargs = {"map_size": 30}
 
     trainer_config = {
-                        "env": 'adversarial-pursuit',
-                        "multiagent": {
-                            "policies": policy_dict,
-                            "policy_mapping_fn": policy_fn
-                        },
-                        "model": {
-                            "conv_filters": [
-                                [13, 10, 1]
-                            ]
-                        },
-                        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
+        "env": 'adversarial-pursuit',
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn": policy_fn
+        },
+        "model": {
+            "conv_filters": [
+                [13, 10, 1]
+            ]
+        },
+        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
+        "rollout_fragment_length": 100,
     }
 
     if gpu:
@@ -90,16 +92,59 @@ def ray_experiment_AP_training(*args, gpu=True):
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/Some_checkpoint_filename')
+    # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/Some_checkpoint_filename')
 
-    checkpoint = train_ray_trainer(trainer, num_iters=10)
+    checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1)
 
     if checkpoint:
         render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn)
 
 
+def ray_experiment_AP_eval(*args, gpu=True):
+    auto_register_env_ray("adversarial-pursuit", adversarial_pursuit_v3)
+
+    obs = Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)
+    act = Discrete(13)
+
+    policy_dict, policy_fn = get_policy_config(action_space=act, obs_space=obs, method='predator_prey')
+
+    env_kwargs = {"map_size": 12}
+
+    trainer_config = {
+        "env": 'adversarial-pursuit',
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn": policy_fn
+        },
+        "model": {
+            "conv_filters": [
+                [13, 10, 1]
+            ]
+        },
+        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
+        "rollout_fragment_length": 100,
+    }
+
+    if gpu:
+        trainer_config["num_gpus"] = 0.9
+    else:  ## For CPUs:
+        trainer_config["num_gpus"] = 0
+        trainer_config["num_cpus_per_worker"] = 1
+
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/ttt')
+
+    # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
+    checkpoint = log_dir + '/checkpoint_000001/checkpoint-1'
+
+    if checkpoint:
+        rewards = evaluate_policies(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn, max_iter=100)
+        print(rewards)
+
+
 def parse_args():
-    parser = argparse.ArgumentParser()      
+    parser = argparse.ArgumentParser()
 
     parser.add_argument('--gpu', dest='gpu', action='store_true')
     parser.add_argument('--no-gpu', dest='gpu', action='store_false')
@@ -111,5 +156,5 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
- 
+
     ray_experiment_AP_training(gpu=args.gpu)
