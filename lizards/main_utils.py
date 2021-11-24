@@ -9,7 +9,10 @@ from ray.tune.registry import register_env
 from ray.tune.logger import pretty_print
 from gym.spaces import Box
 import numpy as np
-
+import pygame
+# from pygame.locals import*
+import PIL
+import os
 
 multiprocessing.set_start_method("fork")
 # From supersuit docs: On MacOS with python>=3.8, need to use fork multiprocessing instead of spawn multiprocessing
@@ -140,7 +143,7 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
     return checkpoint
 
 
-def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
+def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn, max_iter=2**8, savefile=True):
     """
     Visualize from given checkpoint. 
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
@@ -155,8 +158,17 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
     env = env.env(**config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
+    frame_list = []
+    i = 0
     env.reset()
-    for agent in env.agent_iter():
+
+    # import cv2
+    # save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}-.mp4')
+    # print("\nSaving video to:", save_path, "\n")
+    # video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 20, (240, 255))
+    
+    # img = np.zeros((240, 255))
+    for agent in env.agent_iter(max_iter=max_iter):
         observation, reward, done, info = env.last()
         if done:
             action = None
@@ -176,5 +188,53 @@ def render_from_checkpoint(checkpoint, trainer, env, config, policy_fn):
             action = single_action
             # print(f"action={action}")
         env.step(action)
-        env.render(mode='human')
+        # out = False
+
+        # img2 = np.array(PIL.Image.fromarray(env.render(mode='rgb_array')))
+        # if np.array_equal(img,img2) == False:
+        #     print("### i =", i)
+        # img = img2
+
+        if savefile:
+            pass
+            # video.write(cv2.cvtColor(np.array( PIL.Image.fromarray(env.render(mode='rgb_array')) ), cv2.COLOR_RGB2BGR))
+            if (i-1) % (env.num_agents) == 0: #33
+                print("i=", i)
+                frame_list.append(PIL.Image.fromarray(env.render(mode='rgb_array')))
+                ### i = 0, 34, 67, 100, 133, 166, 199, 232 
+        else:
+            env.render(mode='human')
+            ## 1. no clicking needed
+            # for event in pygame.event.get():
+            #     time.sleep(0.1)
+            #     if event.type == pygame.QUIT:
+            #         out = True
+            ## 2. clicking needed
+            # running = True
+            # while running:
+                # for event in pygame.event.get():
+                #     if event.type == pygame.QUIT:
+                #         out = True
+                #     elif event.type == pygame.KEYDOWN:
+                #         running = False
+                #         pygame.display.update()
+            ## pygame.quit()
+        # if out:
+        #     break
+        i += 1
     env.close()
+
+
+    if savefile:
+        save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}@.gif')
+        print("\nSaving gif to:", save_path)
+        frame_list[0].save(save_path, save_all=True, append_images=frame_list[1:], duration=100, loop=0)
+        
+        import cv2
+        save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}@.mp4')
+        print("\nSaving video to:", save_path, "\n")
+        video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (frame_list[0].width,frame_list[0].height)) # cv2.VideoWriter_fourcc(*'XVID')
+        
+        for i, image in enumerate(frame_list):
+            video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
+            frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}@{i}.jpg'))
