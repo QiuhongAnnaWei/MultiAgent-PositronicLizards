@@ -20,6 +20,7 @@ multiprocessing.set_start_method("fork")
 
 def convert_to_sb3_env(env, num_cpus=1):
     """
+    DEPRECATED
     Converts a pettingzoo environment to a stable_baselines3 environment.
 
     Note: This function currently can only accept pettingzoo environments with the following conditions:
@@ -36,6 +37,7 @@ def convert_to_sb3_env(env, num_cpus=1):
 
 def train(sb3_env, model_class, policy_type="MlpPolicy", time_steps=1000, save_name=None):
     """
+    DEPRECATED
     Trains an agent of type model_class on the environment, sb3_env
 
     :param sb3_env: stable_baselines3 environment (I think it's a parallel one)
@@ -54,7 +56,7 @@ def train(sb3_env, model_class, policy_type="MlpPolicy", time_steps=1000, save_n
 
 def evaluate_model(sb3_env, model, render=True, time_steps=1000):
     """
-
+    DEPRECATED
     :param sb3_env: stable_baselines3 environment
     :param model: a pre-trained model
     :param render: boolean, default True
