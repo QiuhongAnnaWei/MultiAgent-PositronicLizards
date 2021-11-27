@@ -109,18 +109,12 @@ def get_num_agents(env, env_config):
     return agent_counts
 
 
-def get_policy_config(action_space, obs_space, team_1_name='red', team_2_name='blue',
-                      team_1_policy='shared', team_2_policy='shared', team_1_count=None, team_2_count=None):
+def get_policy_config(action_space, obs_space, team_data):
     """
     Gets some objects needed for instantiating a ray Trainer
     :param action_space: a gym Space (largest of all agents)
     :param obs_space: a gym Space (largest of all agents)
-    :param team_1_name: 'prey', 'red', etc.
-    :param team_2_name: 'predator', 'blue', etc.
-    :param team_1_policy: 'shared' (one per team) or 'split' (one per agent)
-    :param team_2_policy: 'shared' (one per team) or 'split' (one per agent)
-    :param team_1_count: [optional] number of policies (necessary for 'split' param only)
-    :param team_2_count: [optional] number of policies (necessary for 'split' param only)
+    :param team_data: a list of TeamPolicyConfig objects (usually one per 'team' e.g. 'red')
     :return: policy_dict, policy_fn
     """
 
@@ -134,15 +128,17 @@ def get_policy_config(action_space, obs_space, team_1_name='red', team_2_name='b
     policy_dict = dict()
     policy_fn_dict = dict()
 
-    for team_name, team_policy, team_count in [(team_1_name, team_1_policy, team_1_count),
-                                               (team_2_name, team_2_policy, team_2_count)]:
-        if team_policy == 'shared':
-            policy_dict[team_name + "_shared"] = (None, obs_space, action_space, dict())
-            policy_fn_dict[team_name] = team_name + "_shared"
-        elif team_policy == 'split':
-            policy_fn_dict[team_name] = None
-            for i in range(team_count):
-                policy_dict[f"{team_name}_{i}"] = (None, obs_space, action_space, dict())
+    for team in team_data:
+        name = team.team_name
+        shared = team.shared
+        count = team.count
+        if shared:
+            policy_dict[name + "_shared"] = (None, obs_space, action_space, dict())
+            policy_fn_dict[name] = name + "_shared"
+        else:
+            policy_fn_dict[name] = None
+            for i in range(count):
+                policy_dict[f"{name}_{i}"] = (None, obs_space, action_space, dict())
 
     return policy_dict, policy_fn
 

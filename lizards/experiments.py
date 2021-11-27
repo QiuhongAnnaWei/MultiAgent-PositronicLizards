@@ -24,6 +24,19 @@ env_spaces = {'adversarial-pursuit':
                   {'action_space': Discrete(21), 'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)}}
 
 
+class TeamPolicyConfig:
+    def __init__(self, team_name, shared=True, count=None):
+        """
+        For specifying policy breakdowns for teams
+        :param team_name: 'red', 'preditor', etc.
+        :param shared: whether one policy should be shared for all agents starting with `team_name`, or one per agent
+        :param count: (not required if shared=True) number of agents on team
+        """
+        self.team_name = team_name
+        self.shared = shared
+        self.count = count
+
+
 def experiment_1():
     # DEPRECATED
     battlefield = convert_to_sb3_env(battlefield_v3.env(dead_penalty=-10.0))
@@ -38,7 +51,8 @@ def view_results():
 
 
 def ray_experiment_AP_training_shared(*args, gpu=True):
-    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator', team_2_name='prey')
+    team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
 
     env_config = {"map_size": 30}
 
@@ -55,7 +69,8 @@ def ray_experiment_AP_training_shared(*args, gpu=True):
 
 
 def ray_experiment_AP_eval(*args, gpu=True):
-    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator', team_2_name='prey')
+    team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
 
     env_config = {"map_size": 12}
 
@@ -75,10 +90,10 @@ def ray_experiment_AP_eval(*args, gpu=True):
 
 def ray_experiment_BA_visualize(*args, gpu=True):
     env_config = {"map_size": 19}
-
     red_count = get_num_agents(battle_v3, env_config)['red']
-    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_1_name='red',
-                                               team_2_name='blue', team_1_policy='split', team_1_count=red_count)
+    team_data = [TeamPolicyConfig('red', shared=False, count=red_count), TeamPolicyConfig('blue')]
+
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
 
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
 
@@ -97,10 +112,10 @@ def ray_experiment_BA_visualize(*args, gpu=True):
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
-
     predator_count = get_num_agents(adversarial_pursuit_v3, env_config)['predator']
-    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator',
-                                               team_2_name='prey', team_1_policy='split', team_1_count=predator_count)
+    team_data = [TeamPolicyConfig('predator', shared=False, count=predator_count), TeamPolicyConfig('prey')]
+
+    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
 
     trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
 
@@ -113,10 +128,10 @@ def ray_experiment_AP_training_share_split(*args, gpu=True):
 
 def ray_experiment_BA_training_share_split(*args, gpu=True):
     env_config = {"map_size": 19}
-
     red_count = get_num_agents(battle_v3, env_config)['red']
-    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_1_name='red',
-                                               team_2_name='blue', team_1_policy='split', team_1_count=red_count)
+    team_data = [TeamPolicyConfig('red', shared=False, count=red_count), TeamPolicyConfig('blue')]
+
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
 
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
 
@@ -138,7 +153,7 @@ def parse_args():
                       'TD': ['tiger', 'deer']}
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('experiment', help="peek")
+    # parser.add_argument('experiment', help="peek")
     parser.add_argument('env', choices=['BA', 'AP', 'BF', 'TD'],
                         help=f"choice of environment for training\n{str(env_abreviation_dict)}")
     parser.add_argument('--no-gpu', dest='gpu', default=True, action='store_false',
@@ -164,6 +179,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    args = parse_args()
-    print(args)
+    main()
+    # args = parse_args()
+    # print(args)
