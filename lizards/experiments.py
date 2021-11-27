@@ -152,8 +152,12 @@ def ray_train_generic(*args, **kwargs):
 
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_i{kwargs['train_iters']}__{uuid.uuid4().hex[:5]}")
+                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
+
+    if kwargs['end_render']:
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], policy_fn, max_iter=10000)
+    return checkpoint
 
 
 def ray_BF_training_share_split_retooled():
@@ -166,23 +170,25 @@ def ray_BF_training_share_split_retooled():
         'env_config': env_config,
         'train_iters': 100,
         'log_intervals': 10,
-        'gpu': True
+        'gpu': True,
+        'end_render': False
     }
 
     ray_train_generic(**kwargs)
 
 
 def ray_TD_training_share_split_retooled():
-    env_config = {'map_size': 55}
+    env_config = {'map_size': 30}
     tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
     team_data = [TeamPolicyConfig('tiger', method='split', count=tiger_count), TeamPolicyConfig('deer')]
     kwargs = {
         'env_name': 'tiger-deer',
         'team_data': team_data,
         'env_config': env_config,
-        'train_iters': 100,
-        'log_intervals': 10,
-        'gpu': True
+        'train_iters': 1,
+        'log_intervals': 1,
+        'gpu': True,
+        'end_render': True
     }
 
     ray_train_generic(**kwargs)
@@ -204,6 +210,8 @@ def parse_args():
                         help=f"choice of environment for training\n{str(env_abreviation_dict)}")
     parser.add_argument('--no-gpu', dest='gpu', default=True, action='store_false',
                         help="disables gpu usage")
+    parser.add_argument('--render_end', dest='end_render', default=False, action='store_true',
+                        help="renders the last checkpoint after training")
     parser.add_argument('-i', '--train-iters', dest='train_iters', default=100,
                         help="number of training iterations")
     parser.add_argument('-li', '--log-intervals', dest='log_intervals', default=20,
@@ -222,7 +230,7 @@ def main():
         auto_register_env_ray(env_name, env)
 
     # print(kwargs)
-    # pettingzoo_peek(tiger_deer_v3, {'map_size': 50})
+    # pettingzoo_peek(tiger_deer_v3, {'map_size': 30})
     ray_TD_training_share_split_retooled()
 
 
