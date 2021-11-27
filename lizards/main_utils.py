@@ -91,6 +91,21 @@ def auto_register_env_ray(env_name, env):
     register_env(env_name, lambda config: ParallelPettingZooEnv(env_creator(config)))
 
 
+def get_num_agents(env, env_config):
+    """
+    Gets the number of agents in an environment with a given config
+    :param env: a pettingzoo environment
+    :param env_config: a dictionary of arguments for the environment (e.g. map_size=30)
+    :return: a dictionary in the form {"team_name": count}
+    """
+    e = env.env(**env_config)
+    team_names = list(set([a.split('_')[0] for a in e.possible_agents]))
+    agent_counts = dict()
+    for team_name in team_names:
+        agent_counts[team_name] = max([int(a.split('_')[-1]) for a in e.possible_agents if a.startswith(team_name)]) + 1
+    return agent_counts
+
+
 def get_policy_config(action_space, obs_space, team_1_name='red', team_2_name='blue',
                       team_1_policy='shared', team_2_policy='shared', team_1_count=None, team_2_count=None):
     """

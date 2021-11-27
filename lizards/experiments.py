@@ -146,7 +146,7 @@ def ray_experiment_AP_eval(*args, gpu=True):
 
 def ray_experiment_AP_training_split(*args, gpu=True):
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator',
-                                               team_2_name='prey', team_2_policy='split')
+                                               team_2_name='prey', team_2_policy='split', team_2_count=10)
 
     env_kwargs = {"map_size": 30}
 
@@ -173,9 +173,9 @@ def ray_experiment_AP_training_split(*args, gpu=True):
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_adversarial-pursuit_prey-split')
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_adversarial-pursuit_prey-split_100')
 
-    checkpoint = train_ray_trainer(trainer, num_iters=10, log_intervals=5, log_dir=log_dir)
+    checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
 
 def parse_args():
@@ -192,5 +192,7 @@ if __name__ == "__main__":
     args = parse_args()
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
-    ray_experiment_AP_training_split(args)
+    # ray_experiment_AP_training_split(args)
     # ray_experiment_AP_training(gpu=args.gpu)
+    x = get_num_agents(adversarial_pursuit_v3, {"map_size": 30})
+    print(x)
