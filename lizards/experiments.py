@@ -14,6 +14,7 @@ import pickle
 from tensorflow import Tensor
 import tensorflow as tf
 import argparse
+import uuid
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
                  'battlefield': battlefield_v3}
@@ -36,6 +37,14 @@ class TeamPolicyConfig:
         self.method = method
         self.count = count
 
+    def for_filename(self):
+        if self.method == 'split':
+            return f"_{self.team_name}-split"
+        return ""
+
+    def __str__(self):
+        return f"TeamPolicyConfig: {self.team_name}, {self.method}, {self.count}"
+
 
 def experiment_1():
     # DEPRECATED
@@ -53,15 +62,12 @@ def view_results():
 def ray_experiment_AP_training_shared(*args, gpu=True):
     team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
-
     env_config = {"map_size": 30}
 
     trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
-
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/Some_checkpoint_filename')
-
     checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1)
 
     if checkpoint:
@@ -71,15 +77,12 @@ def ray_experiment_AP_training_shared(*args, gpu=True):
 def ray_experiment_AP_eval(*args, gpu=True):
     team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
-
     env_config = {"map_size": 12}
 
     trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
-
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/ttt')
-
     # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
     checkpoint = log_dir + '/checkpoint_000001/checkpoint-1'
 
@@ -94,13 +97,10 @@ def ray_experiment_BA_visualize(*args, gpu=True):
     team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
 
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
-
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
-
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_battle_red-split_100')
-
     # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
     checkpoint = log_dir + '/checkpoint_000081/checkpoint-81'
 
@@ -116,13 +116,10 @@ def ray_experiment_AP_training_share_split(*args, gpu=True):
     team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
 
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
-
     trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
-
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_adversarial-pursuit_predator-split_100')
-
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
 
@@ -132,14 +129,28 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
     team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
 
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
-
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
-
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_battle_red-split_100')
-
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
+
+
+def ray_train_generic(*args, **kwargs):
+    # TODO: set up tooling around this
+    # env_config = {"map_size": 19}
+    # red_count = get_num_agents(battle_v3, env_config)['red']
+    # team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
+
+    policy_dict, policy_fn = get_policy_config(**env_spaces[kwargs['env_name']], team_data=kwargs['team_data'])
+    trainer_config = get_trainer_config(kwargs['env_name'], policy_dict, policy_fn, kwargs['env_config'], gpu=kwargs['gpu'])
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_i{kwargs['train_iters']}__{uuid.uuid4().hex[:5]}")
+
+    checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
 
 def parse_args():
@@ -153,7 +164,7 @@ def parse_args():
                       'TD': ['tiger', 'deer']}
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument('experiment', help="peek")
+    # parser.add_argument('experiment', help="train")
     parser.add_argument('env', choices=['BA', 'AP', 'BF', 'TD'],
                         help=f"choice of environment for training\n{str(env_abreviation_dict)}")
     parser.add_argument('--no-gpu', dest='gpu', default=True, action='store_false',
@@ -167,15 +178,11 @@ def parse_args():
 
 
 def main():
-    args = parse_args()
+    kwargs = parse_args()
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
-    # ray_experiment_AP_training_split(args)
-    # ray_experiment_AP_training_share_split(gpu=args.gpu)
-    # ray_experiment_BA_training_share_split(args)
-    ray_experiment_BA_visualize(args)
-    # x = get_num_agents(battle_v3, {'map_size': 19})
-    # print(x)
+
+    # kwargs['team_data'] = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
 
 
 if __name__ == "__main__":
