@@ -54,15 +54,14 @@ def ray_experiment_1(*args, gpu=True):
             ]
         },
         "env_config": env_kwargs,
-        "num_gpus": 0.9,
-        "rollout_fragment_length": 100,
+        "rollout_fragment_length": 100
     }
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     if gpu:
         trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 1
+        trainer_config["num_gpus_per_worker"] = 0.5
     else:  ## For CPUs:
         trainer_config["num_gpus"] = 0
 
@@ -87,12 +86,12 @@ def ray_experiment_AP_training_shared(*args, gpu=True):
             ]
         },
         "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        "rollout_fragment_length": 100,
+        "rollout_fragment_length": 100
     }
 
     if gpu:
         trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 1
+        trainer_config["num_gpus_per_worker"] = 0.5
     else:  ## For CPUs:
         trainer_config["num_gpus"] = 0
 
@@ -123,12 +122,12 @@ def ray_experiment_AP_eval(*args, gpu=True):
             ]
         },
         "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        "rollout_fragment_length": 100,
+        "rollout_fragment_length": 100
     }
 
     if gpu:
         trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 1
+        trainer_config["num_gpus_per_worker"] = 0.5
     else:  ## For CPUs:
         trainer_config["num_gpus"] = 0
 
@@ -163,12 +162,12 @@ def ray_experiment_AP_training_share_split(*args, gpu=True):
             ]
         },
         "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        "rollout_fragment_length": 100,
+        "rollout_fragment_length": 100
     }
 
     if gpu:
         trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 1
+        trainer_config["num_gpus_per_worker"] = 0.5
     else:  ## For CPUs:
         trainer_config["num_gpus"] = 0
 
