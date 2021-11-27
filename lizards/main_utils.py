@@ -91,14 +91,18 @@ def auto_register_env_ray(env_name, env):
     register_env(env_name, lambda config: ParallelPettingZooEnv(env_creator(config)))
 
 
-def get_policy_config(action_space, obs_space, method='red_blue', team_1_name='red', team_2_name='blue',
+def get_policy_config(action_space, obs_space, team_1_name='red', team_2_name='blue',
                       team_1_policy='shared', team_2_policy='shared', team_1_count=None, team_2_count=None):
     """
     Gets some objects needed for instantiating a ray Trainer
-    :param env: pettingzoo environment
     :param action_space: a gym Space (largest of all agents)
     :param obs_space: a gym Space (largest of all agents)
-    :param method: [optional] split policies by color, species
+    :param team_1_name: 'prey', 'red', etc.
+    :param team_2_name: 'predator', 'blue', etc.
+    :param team_1_policy: 'shared' (one per team) or 'split' (one per agent)
+    :param team_2_policy: 'shared' (one per team) or 'split' (one per agent)
+    :param team_1_count: [optional] number of policies (necessary for 'split' param only)
+    :param team_2_count: [optional] number of policies (necessary for 'split' param only)
     :return: policy_dict, policy_fn
     """
 
