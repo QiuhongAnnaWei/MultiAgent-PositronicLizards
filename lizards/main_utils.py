@@ -130,12 +130,12 @@ def get_policy_config(action_space, obs_space, team_data):
 
     for team in team_data:
         name = team.team_name
-        shared = team.shared
+        method = team.method
         count = team.count
-        if shared:
+        if method == 'shared':
             policy_dict[name + "_shared"] = (None, obs_space, action_space, dict())
             policy_fn_dict[name] = name + "_shared"
-        else:
+        elif method == 'split':
             policy_fn_dict[name] = None
             for i in range(count):
                 policy_dict[f"{name}_{i}"] = (None, obs_space, action_space, dict())

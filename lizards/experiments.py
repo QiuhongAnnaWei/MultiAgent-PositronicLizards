@@ -25,15 +25,15 @@ env_spaces = {'adversarial-pursuit':
 
 
 class TeamPolicyConfig:
-    def __init__(self, team_name, shared=True, count=None):
+    def __init__(self, team_name, method='shared', count=None):
         """
         For specifying policy breakdowns for teams
         :param team_name: 'red', 'preditor', etc.
-        :param shared: whether one policy should be shared for all agents starting with `team_name`, or one per agent
-        :param count: (not required if shared=True) number of agents on team
+        :param method: 'shared': one policy shared for all agents starting with `team_name`, or 'split': one per agent
+        :param count: (not required if method='shared') number of agents on team
         """
         self.team_name = team_name
-        self.shared = shared
+        self.method = method
         self.count = count
 
 
@@ -91,7 +91,7 @@ def ray_experiment_AP_eval(*args, gpu=True):
 def ray_experiment_BA_visualize(*args, gpu=True):
     env_config = {"map_size": 19}
     red_count = get_num_agents(battle_v3, env_config)['red']
-    team_data = [TeamPolicyConfig('red', shared=False, count=red_count), TeamPolicyConfig('blue')]
+    team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
 
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
 
@@ -113,7 +113,7 @@ def ray_experiment_BA_visualize(*args, gpu=True):
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
     predator_count = get_num_agents(adversarial_pursuit_v3, env_config)['predator']
-    team_data = [TeamPolicyConfig('predator', shared=False, count=predator_count), TeamPolicyConfig('prey')]
+    team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
 
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_data=team_data)
 
@@ -129,7 +129,7 @@ def ray_experiment_AP_training_share_split(*args, gpu=True):
 def ray_experiment_BA_training_share_split(*args, gpu=True):
     env_config = {"map_size": 19}
     red_count = get_num_agents(battle_v3, env_config)['red']
-    team_data = [TeamPolicyConfig('red', shared=False, count=red_count), TeamPolicyConfig('blue')]
+    team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
 
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
 
