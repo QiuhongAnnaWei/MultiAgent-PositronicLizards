@@ -182,7 +182,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     return trainer_config
 
 
-def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
+def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None, free_resources_after_train=False):
     """
     Trains a Ray Trainer and saves checkpoints
     :param trainer: a Ray Trainer
@@ -203,6 +203,8 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
             checkpoint = trainer.save(log_dir)
             print("checkpoint saved at", checkpoint)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
+
+    if free_resources_after_train: trainer.stop()
 
     return checkpoint
 
