@@ -183,11 +183,11 @@ def ray_BF_training_share_split_retooled():
         'gpu': True
     }
 
-    ray_train_generic(**kwargs, end_render=False)
+    ray_train_generic(**kwargs, end_render=True)
 
 
 def ray_TD_training_share_split_retooled():
-    env_config = {'map_size': 30, 'max_cycles': 5000}
+    env_config = {'map_size': 30, 'max_cycles': 10000}
     tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
     team_data = [TeamPolicyConfig('tiger', method='split', count=tiger_count), TeamPolicyConfig('deer')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
@@ -245,7 +245,8 @@ def main():
 
     # print(kwargs)
     # pettingzoo_peek(tiger_deer_v3, {'map_size': 30})
-    ray_TD_training_share_split_retooled()
+    # ray_TD_training_share_split_retooled()
+    ray_BF_training_share_split_retooled()
 
 
 if __name__ == "__main__":
