@@ -15,6 +15,8 @@ import PIL
 import os
 
 multiprocessing.set_start_method("fork")
+
+
 # From supersuit docs: On MacOS with python>=3.8, need to use fork multiprocessing instead of spawn multiprocessing
 
 
@@ -47,10 +49,10 @@ def train(sb3_env, model_class, policy_type="MlpPolicy", time_steps=1000, save_n
     :param save_name: try to prefix this with 'trained_policies/' to put them in that directory
     :return: a trained model
     """
-    model = model_class(policy_type, sb3_env)   # Instantiates an RL algorithm (model_class) with an sb3 environment
+    model = model_class(policy_type, sb3_env)  # Instantiates an RL algorithm (model_class) with an sb3 environment
     model.learn(total_timesteps=time_steps)
     if save_name:
-        model.save(save_name)   # Saves the model as a zip
+        model.save(save_name)  # Saves the model as a zip
     return model
 
 
@@ -81,6 +83,7 @@ def auto_register_env_ray(env_name, env):
     :param env: pettingzoo environment
     :return: None
     """
+
     def env_creator(config):
         penv = env.parallel_env(**config)
         penv = ss.pad_observations_v0(penv)
@@ -131,16 +134,54 @@ def get_policy_config(action_space, obs_space, team_1_name='red', team_2_name='b
     policy_dict = dict()
     policy_fn_dict = dict()
 
-    for team_name, team_policy, team_count in [(team_1_name, team_1_policy, team_1_count), (team_2_name, team_2_policy, team_2_count)]:
+    for team_name, team_policy, team_count in [(team_1_name, team_1_policy, team_1_count),
+                                               (team_2_name, team_2_policy, team_2_count)]:
         if team_policy == 'shared':
-            policy_dict[team_name+"_shared"] = (None, obs_space, action_space, dict())
-            policy_fn_dict[team_name] = team_name+"_shared"
+            policy_dict[team_name + "_shared"] = (None, obs_space, action_space, dict())
+            policy_fn_dict[team_name] = team_name + "_shared"
         elif team_policy == 'split':
             policy_fn_dict[team_name] = None
             for i in range(team_count):
                 policy_dict[f"{team_name}_{i}"] = (None, obs_space, action_space, dict())
 
     return policy_dict, policy_fn
+
+
+def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filters=None, gpu=True, **kwargs):
+    """
+    Gets a config dictionary for a Ray Trainer
+    :param env_name: the Ray-registered environment name (e.g. 'adversarial-pursuit')
+    :param policy_dict: policy_dict from get_policy_config
+    :param policy_fn: policy_fn from get_policy_config
+    :param env_config: a dictionary of arguments for the environment (e.g. map_size=30)
+    :param conv_filters: [optional] a list of convolutional filters
+    :param kwargs: any other keyword arguments you want to put into the trainer config dict
+    :return: a config dict for a Ray Trainer
+    """
+    convs = {"adversarial-pursuit": [[13, 10, 1]],
+             "battle": [[21, 13, 1]]}
+
+    trainer_config = {
+        "env": env_name,
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn": policy_fn
+        },
+        "model": {
+            "conv_filters": convs[env_name] if conv_filters is None else conv_filters
+        },
+        "env_config": env_config,
+        "rollout_fragment_length": 100
+    }
+
+    if gpu:
+        trainer_config["num_gpus"] = 1
+        trainer_config["num_gpus_per_worker"] = 0.5
+    else:  # For CPU training only:
+        trainer_config["num_gpus"] = 0
+
+    trainer_config.update(kwargs)
+    return trainer_config
 
 
 def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
@@ -168,7 +209,7 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
     return checkpoint
 
 
-def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=2**8, savefile=False):
+def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, savefile=False):
     """
     Visualize from given checkpoint.
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
@@ -199,10 +240,10 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         if done:
             action = None
         else:
-            agentpolicy = policy_fn(agent, None) # map agent id to policy id
+            agentpolicy = policy_fn(agent, None)  # map agent id to policy id
             policy = trainer.get_policy(agentpolicy)
             batch_obs = {
-                'obs': np.expand_dims(observation, 0) # (10,10,5) -> (1,10,10,5)
+                'obs': np.expand_dims(observation, 0)  # (10,10,5) -> (1,10,10,5)
             }
             batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
             single_action = batched_action[0]
@@ -212,7 +253,7 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         out = False
         if savefile:
             img2 = PIL.Image.fromarray(env.render(mode='rgb_array'))
-            if np.array_equal(np.array(img),np.array(img2)) == False:
+            if np.array_equal(np.array(img), np.array(img2)) == False:
                 diff_frame_list.append(img2)
             img = img2
             # video.write(cv2.cvtColor(np.array( PIL.Image.fromarray(env.render(mode='rgb_array')) ), cv2.COLOR_RGB2BGR))

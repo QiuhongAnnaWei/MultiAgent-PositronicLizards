@@ -37,63 +37,12 @@ def view_results():
                    PPO.load('trained_policies/battlefield-10e6-V1'))
 
 
-def ray_experiment_1(*args, gpu=True):
-    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'])
-
-    env_kwargs = {"map_size": 12}
-
-    trainer_config = {
-        "env": "battle",
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [21, 13, 1]
-            ]
-        },
-        "env_config": env_kwargs,
-        "rollout_fragment_length": 100
-    }
-
-    trainer = ppo.PPOTrainer(config=trainer_config)
-
-    if gpu:
-        trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 0.5
-    else:  ## For CPUs:
-        trainer_config["num_gpus"] = 0
-
-    for i in range(10):
-        print(trainer.train())
-
-
 def ray_experiment_AP_training_shared(*args, gpu=True):
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator', team_2_name='prey')
 
-    env_kwargs = {"map_size": 30}
+    env_config = {"map_size": 30}
 
-    trainer_config = {
-        "env": 'adversarial-pursuit',
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [13, 10, 1]
-            ]
-        },
-        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        "rollout_fragment_length": 100
-    }
-
-    if gpu:
-        trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 0.5
-    else:  ## For CPUs:
-        trainer_config["num_gpus"] = 0
+    trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
@@ -102,34 +51,15 @@ def ray_experiment_AP_training_shared(*args, gpu=True):
     checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1)
 
     if checkpoint:
-        render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn)
+        render_from_checkpoint(checkpoint, trainer, adversarial_pursuit_v3, env_config, policy_fn)
 
 
 def ray_experiment_AP_eval(*args, gpu=True):
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator', team_2_name='prey')
 
-    env_kwargs = {"map_size": 12}
+    env_config = {"map_size": 12}
 
-    trainer_config = {
-        "env": 'adversarial-pursuit',
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [13, 10, 1]
-            ]
-        },
-        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        "rollout_fragment_length": 100
-    }
-
-    if gpu:
-        trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 0.5
-    else:  ## For CPUs:
-        trainer_config["num_gpus"] = 0
+    trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
@@ -139,31 +69,18 @@ def ray_experiment_AP_eval(*args, gpu=True):
     checkpoint = log_dir + '/checkpoint_000001/checkpoint-1'
 
     if checkpoint:
-        rewards = evaluate_policies(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn, max_iter=100)
+        rewards = evaluate_policies(checkpoint, trainer, adversarial_pursuit_v3, env_config, policy_fn, max_iter=100)
         print(rewards)
 
 
 def ray_experiment_BA_visualize(*args, gpu=True):
-    env_kwargs = {"map_size": 19}
+    env_config = {"map_size": 19}
 
-    red_count = get_num_agents(battle_v3, env_kwargs)['red']
+    red_count = get_num_agents(battle_v3, env_config)['red']
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_1_name='red',
                                                team_2_name='blue', team_1_policy='split', team_1_count=red_count)
 
-    trainer_config = {
-        "env": "battle",
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [21, 13, 1]
-            ]
-        },
-        "env_config": env_kwargs,
-        "rollout_fragment_length": 100
-    }
+    trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
@@ -175,36 +92,17 @@ def ray_experiment_BA_visualize(*args, gpu=True):
     if checkpoint:
         # rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_kwargs, policy_fn, max_iter=1000)
         # print(rewards)
-        render_from_checkpoint(checkpoint, trainer, battle_v3, env_kwargs, policy_fn)
+        render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
-    env_kwargs = {"map_size": 30}
+    env_config = {"map_size": 30}
 
-    predator_count = get_num_agents(adversarial_pursuit_v3, env_kwargs)['predator']
+    predator_count = get_num_agents(adversarial_pursuit_v3, env_config)['predator']
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator',
                                                team_2_name='prey', team_1_policy='split', team_1_count=predator_count)
 
-    trainer_config = {
-        "env": 'adversarial-pursuit',
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [13, 10, 1]
-            ]
-        },
-        "env_config": env_kwargs,  # passed to the env creator as an EnvContext object
-        "rollout_fragment_length": 100
-    }
-
-    if gpu:
-        trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 0.5
-    else:  ## For CPUs:
-        trainer_config["num_gpus"] = 0
+    trainer_config = get_trainer_config('adversarial-pursuit', policy_dict, policy_fn, env_config, gpu=gpu)
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
@@ -214,32 +112,13 @@ def ray_experiment_AP_training_share_split(*args, gpu=True):
 
 
 def ray_experiment_BA_training_share_split(*args, gpu=True):
-    env_kwargs = {"map_size": 19}
+    env_config = {"map_size": 19}
 
-    red_count = get_num_agents(battle_v3, env_kwargs)['red']
+    red_count = get_num_agents(battle_v3, env_config)['red']
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_1_name='red',
                                                team_2_name='blue', team_1_policy='split', team_1_count=red_count)
 
-    trainer_config = {
-        "env": "battle",
-        "multiagent": {
-            "policies": policy_dict,
-            "policy_mapping_fn": policy_fn
-        },
-        "model": {
-            "conv_filters": [
-                [21, 13, 1]
-            ]
-        },
-        "env_config": env_kwargs,
-        "rollout_fragment_length": 100
-    }
-
-    if gpu:
-        trainer_config["num_gpus"] = 1
-        trainer_config["num_gpus_per_worker"] = 0.5
-    else:  ## For CPUs:
-        trainer_config["num_gpus"] = 0
+    trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
