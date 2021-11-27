@@ -91,7 +91,8 @@ def auto_register_env_ray(env_name, env):
     register_env(env_name, lambda config: ParallelPettingZooEnv(env_creator(config)))
 
 
-def get_policy_config(action_space, obs_space, method='red_blue'):
+def get_policy_config(action_space, obs_space, method='red_blue', team_1_name='red', team_2_name='blue',
+                      team_1_policy='shared', team_2_policy='shared', team_1_count=None, team_2_count=None):
     """
     Gets some objects needed for instantiating a ray Trainer
     :param env: pettingzoo environment
@@ -100,22 +101,25 @@ def get_policy_config(action_space, obs_space, method='red_blue'):
     :param method: [optional] split policies by color, species
     :return: policy_dict, policy_fn
     """
-    team_1 = None
-    team_2 = None
 
-    if method == 'red_blue':
-        team_1 = "red"
-        team_2 = "blue"
+    def policy_fn(agent_id, episode, **kwargs):
+        subdict = policy_fn_dict[agent_id.split('_')[0]]
+        if isinstance(subdict, str):
+            return subdict
+        else:
+            return agent_id
 
-    elif method == 'predator_prey':
-        team_1 = "predator"
-        team_2 = "prey"
+    policy_dict = dict()
+    policy_fn_dict = dict()
 
-    # policies: {policy ids: (policy_cls, obs_space, act_space, config)}
-    policy_dict = {team_1: (None, obs_space, action_space, dict()),
-                   team_2: (None, obs_space, action_space, dict())}
-    # policy_mapping_fn: map agent ids -> policy ids
-    policy_fn = lambda agent_id, episode, **kwargs: team_1 if agent_id.startswith(team_1) else team_2
+    for team_name, team_policy, team_count in [(team_1_name, team_1_policy, team_1_count), (team_2_name, team_2_policy, team_2_count)]:
+        if team_policy == 'shared':
+            policy_dict[team_name+"_shared"] = (None, obs_space, action_space, dict())
+            policy_fn_dict[team_name] = team_name+"_shared"
+        elif team_policy == 'split':
+            policy_fn_dict[team_name] = None
+            for i in range(team_count):
+                policy_dict[f"{team_name}_{i}"] = (None, obs_space, action_space, dict())
 
     return policy_dict, policy_fn
 

@@ -18,25 +18,27 @@ import argparse
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
                  'battlefield': battlefield_v3}
 
+env_spaces = {'adversarial-pursuit':
+                  {'action_space': Discrete(13), 'obs_space': Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)},
+              'battle':
+                  {'action_space': Discrete(21), 'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)}}
+
 
 def experiment_1():
+    # DEPRECATED
     battlefield = convert_to_sb3_env(battlefield_v3.env(dead_penalty=-10.0))
     model = train(battlefield, PPO, time_steps=10000, save_name='trained_policies/battlefield-10e4-V1')
     evaluate_model(battlefield, model)
 
 
 def view_results():
+    # DEPRECATED
     evaluate_model(convert_to_sb3_env(battlefield_v3.env(dead_penalty=-10.0)),
                    PPO.load('trained_policies/battlefield-10e6-V1'))
 
 
 def ray_experiment_1():
-    auto_register_env_ray("battle", battle_v3)
-
-    obs = Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)
-    act = Discrete(21)
-
-    policy_dict, policy_fn = get_policy_config(action_space=act, obs_space=obs)
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'])
 
     trainer = ppo.PPOTrainer(env='battle', config={
         "multiagent": {
@@ -60,12 +62,7 @@ def ray_experiment_1():
 
 
 def ray_experiment_AP_training(*args, gpu=True):
-    auto_register_env_ray("adversarial-pursuit", adversarial_pursuit_v3)
-
-    obs = Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)
-    act = Discrete(13)
-
-    policy_dict, policy_fn = get_policy_config(action_space=act, obs_space=obs, method='predator_prey')
+    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator', team_2_name='prey')
 
     env_kwargs = {"map_size": 30}
 
@@ -101,12 +98,7 @@ def ray_experiment_AP_training(*args, gpu=True):
 
 
 def ray_experiment_AP_eval(*args, gpu=True):
-    auto_register_env_ray("adversarial-pursuit", adversarial_pursuit_v3)
-
-    obs = Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)
-    act = Discrete(13)
-
-    policy_dict, policy_fn = get_policy_config(action_space=act, obs_space=obs, method='predator_prey')
+    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator', team_2_name='prey')
 
     env_kwargs = {"map_size": 12}
 
@@ -142,7 +134,6 @@ def ray_experiment_AP_eval(*args, gpu=True):
         rewards = evaluate_policies(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn, max_iter=100)
         print(rewards)
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -156,5 +147,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-
-    ray_experiment_AP_training(gpu=args.gpu)
+    for env_name, env in env_directory.items():
+        auto_register_env_ray(env_name, env)
+    ray_experiment_1()
+    # ray_experiment_AP_training(gpu=args.gpu)
