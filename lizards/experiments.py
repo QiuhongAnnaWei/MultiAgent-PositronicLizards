@@ -128,16 +128,30 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
 
 
 def parse_args():
+    env_abreviation_dict = {'BA': 'battle',
+                            'AP': 'adversarial-pursuit',
+                            'BF': 'battlefield',
+                            'TD': 'tiger-deer'}
+    env_team_names = {'BA': ['red', 'blue'],
+                      'AP': ['predator', 'prey'],
+                      'BF': ['red', 'blue'],
+                      'TD': ['tiger', 'deer']}
+
     parser = argparse.ArgumentParser()
+    parser.add_argument('experiment', help="peek")
+    parser.add_argument('env', choices=['BA', 'AP', 'BF', 'TD'],
+                        help=f"choice of environment for training\n{str(env_abreviation_dict)}")
+    parser.add_argument('--no-gpu', dest='gpu', default=True, action='store_false',
+                        help="disables gpu usage")
 
-    parser.add_argument('--gpu', dest='gpu', action='store_true')
-    parser.add_argument('--no-gpu', dest='gpu', action='store_false')
-    parser.set_defaults(gpu=True)
+    args = parser.parse_args()
+    args.env_name = env_abreviation_dict[args.env]
+    args.team_names = env_team_names[args.env]
 
-    return parser.parse_args()
+    return args
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
@@ -147,3 +161,9 @@ if __name__ == "__main__":
     ray_experiment_BA_visualize(args)
     # x = get_num_agents(battle_v3, {'map_size': 19})
     # print(x)
+
+
+if __name__ == "__main__":
+    # main()
+    args = parse_args()
+    print(args)
