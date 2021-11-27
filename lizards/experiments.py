@@ -169,6 +169,7 @@ def ray_viz_generic(checkpoint, **kwargs):
     render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'],
                            kwargs['policy_fn'], max_iter=10000)
 
+
 def ray_BF_training_share_split_retooled():
     env_config = {'map_size': 55, 'dead_penalty': -6}
     red_count = get_num_agents(battlefield_v3, env_config)['red']
