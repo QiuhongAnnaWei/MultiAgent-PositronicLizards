@@ -185,8 +185,8 @@ def ray_TD_training_share_split_retooled():
         'env_name': 'tiger-deer',
         'team_data': team_data,
         'env_config': env_config,
-        'train_iters': 1,
-        'log_intervals': 1,
+        'train_iters': 100,
+        'log_intervals': 20,
         'gpu': True,
         'end_render': True
     }
