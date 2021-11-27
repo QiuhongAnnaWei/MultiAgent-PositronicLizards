@@ -145,9 +145,9 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
 
-def ray_train_generic(*args, **kwargs):
-    policy_dict, policy_fn = get_policy_config(**env_spaces[kwargs['env_name']], team_data=kwargs['team_data'])
-    trainer_config = get_trainer_config(kwargs['env_name'], policy_dict, policy_fn, kwargs['env_config'], gpu=kwargs['gpu'])
+def ray_train_generic(*args, end_render=True, **kwargs):
+    trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
+                                        kwargs['env_config'], gpu=kwargs['gpu'])
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
@@ -156,9 +156,18 @@ def ray_train_generic(*args, **kwargs):
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
     if kwargs['end_render']:
-        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], policy_fn, max_iter=10000)
-    return checkpoint
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
+    return checkpoint, trainer
 
+
+def ray_viz_generic(checkpoint, **kwargs):
+    trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
+                                        kwargs['env_config'],
+                                        gpu=kwargs['gpu'])
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'],
+                           kwargs['policy_fn'], max_iter=10000)
 
 def ray_BF_training_share_split_retooled():
     env_config = {'map_size': 55, 'dead_penalty': -6}
@@ -170,28 +179,32 @@ def ray_BF_training_share_split_retooled():
         'env_config': env_config,
         'train_iters': 100,
         'log_intervals': 10,
-        'gpu': True,
-        'end_render': False
+        'gpu': True
     }
 
-    ray_train_generic(**kwargs)
+    ray_train_generic(**kwargs, end_render=False)
 
 
 def ray_TD_training_share_split_retooled():
-    env_config = {'map_size': 30}
+    env_config = {'map_size': 30, 'max_cycles': 5000}
     tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
     team_data = [TeamPolicyConfig('tiger', method='split', count=tiger_count), TeamPolicyConfig('deer')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
     kwargs = {
         'env_name': 'tiger-deer',
         'team_data': team_data,
         'env_config': env_config,
-        'train_iters': 100,
-        'log_intervals': 20,
-        'gpu': True,
-        'end_render': True
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 20,
+        'log_intervals': 10,
+        'gpu': True
     }
 
-    ray_train_generic(**kwargs)
+    # ray_train_generic(**kwargs)
+    ray_viz_generic(
+        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100-iters__f1282/checkpoint_000100/checkpoint-100',
+        **kwargs)
 
 
 def parse_args():

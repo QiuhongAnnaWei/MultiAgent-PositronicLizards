@@ -169,7 +169,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
             "conv_filters": convs[env_name] if conv_filters is None else conv_filters
         },
         "env_config": env_config,
-        "rollout_fragment_length": 100
+        "rollout_fragment_length": 1000
     }
 
     if gpu:
