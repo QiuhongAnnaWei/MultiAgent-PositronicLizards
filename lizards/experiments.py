@@ -144,11 +144,12 @@ def ray_experiment_AP_eval(*args, gpu=True):
         print(rewards)
 
 
-def ray_experiment_AP_training_split(*args, gpu=True):
-    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator',
-                                               team_2_name='prey', team_2_policy='split', team_2_count=10)
-
+def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_kwargs = {"map_size": 30}
+
+    prey_count = get_num_agents(adversarial_pursuit_v3, env_kwargs)['prey']
+    policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator',
+                                               team_2_name='prey', team_2_policy='split', team_2_count=prey_count)
 
     trainer_config = {
         "env": 'adversarial-pursuit',
@@ -193,6 +194,4 @@ if __name__ == "__main__":
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
     # ray_experiment_AP_training_split(args)
-    # ray_experiment_AP_training(gpu=args.gpu)
-    x = get_num_agents(adversarial_pursuit_v3, {"map_size": 30})
-    print(x)
+    ray_experiment_AP_training_share_split(gpu=args.gpu)
