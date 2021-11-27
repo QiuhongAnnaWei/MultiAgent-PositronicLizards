@@ -37,10 +37,13 @@ def view_results():
                    PPO.load('trained_policies/battlefield-10e6-V1'))
 
 
-def ray_experiment_1():
+def ray_experiment_1(*args, gpu=True):
     policy_dict, policy_fn = get_policy_config(**env_spaces['battle'])
 
-    trainer = ppo.PPOTrainer(env='battle', config={
+    env_kwargs = {"map_size": 12}
+
+    trainer_config = {
+        "env": "battle",
         "multiagent": {
             "policies": policy_dict,
             "policy_mapping_fn": policy_fn
@@ -50,12 +53,18 @@ def ray_experiment_1():
                 [21, 13, 1]
             ]
         },
-        "env_config": {
-            "map_size": 12
-        },
+        "env_config": env_kwargs,
         "num_gpus": 0.9,
         "rollout_fragment_length": 100,
-    })
+    }
+
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    if gpu:
+        trainer_config["num_gpus"] = 0.9
+    else:  ## For CPUs:
+        trainer_config["num_gpus"] = 0
+        trainer_config["num_cpus_per_worker"] = 1
 
     for i in range(10):
         print(trainer.train())
@@ -134,6 +143,7 @@ def ray_experiment_AP_eval(*args, gpu=True):
         rewards = evaluate_policies(checkpoint, trainer, adversarial_pursuit_v3, env_kwargs, policy_fn, max_iter=100)
         print(rewards)
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -141,13 +151,12 @@ def parse_args():
     parser.add_argument('--no-gpu', dest='gpu', action='store_false')
     parser.set_defaults(gpu=True)
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
-    ray_experiment_1()
+    ray_experiment_1(args)
     # ray_experiment_AP_training(gpu=args.gpu)
