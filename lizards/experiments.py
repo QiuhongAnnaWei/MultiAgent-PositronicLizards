@@ -146,9 +146,9 @@ def ray_experiment_AP_eval(*args, gpu=True):
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_kwargs = {"map_size": 30}
 
-    prey_count = get_num_agents(adversarial_pursuit_v3, env_kwargs)['prey']
+    predator_count = get_num_agents(adversarial_pursuit_v3, env_kwargs)['predator']
     policy_dict, policy_fn = get_policy_config(**env_spaces['adversarial-pursuit'], team_1_name='predator',
-                                               team_2_name='prey', team_2_policy='split', team_2_count=prey_count)
+                                               team_2_name='prey', team_1_policy='split', team_1_count=predator_count)
 
     trainer_config = {
         "env": 'adversarial-pursuit',
@@ -173,7 +173,42 @@ def ray_experiment_AP_training_share_split(*args, gpu=True):
 
     trainer = ppo.PPOTrainer(config=trainer_config)
 
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_adversarial-pursuit_prey-split_100')
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_adversarial-pursuit_predator-split_100')
+
+    checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
+
+
+def ray_experiment_BA_training_share_split(*args, gpu=True):
+    env_kwargs = {"map_size": 19}
+
+    red_count = get_num_agents(battle_v3, env_kwargs)['red']
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_1_name='red',
+                                               team_2_name='blue', team_1_policy='split', team_1_count=red_count)
+
+    trainer_config = {
+        "env": "battle",
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn": policy_fn
+        },
+        "model": {
+            "conv_filters": [
+                [21, 13, 1]
+            ]
+        },
+        "env_config": env_kwargs,
+        "rollout_fragment_length": 100
+    }
+
+    if gpu:
+        trainer_config["num_gpus"] = 1
+        trainer_config["num_gpus_per_worker"] = 0.5
+    else:  ## For CPUs:
+        trainer_config["num_gpus"] = 0
+
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_battle_red-split_100')
 
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
@@ -193,4 +228,7 @@ if __name__ == "__main__":
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
     # ray_experiment_AP_training_split(args)
-    ray_experiment_AP_training_share_split(gpu=args.gpu)
+    # ray_experiment_AP_training_share_split(gpu=args.gpu)
+    ray_experiment_BA_training_share_split(args)
+    # x = get_num_agents(battle_v3, {'map_size': 19})
+    # print(x)
