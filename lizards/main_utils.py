@@ -155,12 +155,12 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
     checkpoint = None
     true_start = time.time()
     for i in range(num_iters):
-        print(f"Starting training on batch {i}...")
+        print(f"Starting training on batch {i + 1}...")
         start = time.time()
         result = trainer.train()
         print(pretty_print(result))
-        print(f"batch {i}: took {time.time() - start} seconds")
-        if i % log_intervals == 0:
+        print(f"batch {i + 1}: took {time.time() - start} seconds")
+        if (i + 1) % log_intervals == 0:
             checkpoint = trainer.save(log_dir)
             print("checkpoint saved at", checkpoint)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
@@ -220,11 +220,13 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
             #     frame_list.append(PIL.Image.fromarray(env.render(mode='rgb_array')))
         else:
             env.render(mode='human')
-            for event in pygame.event.get():
-                time.sleep(0.1)
-                if event.type == pygame.QUIT:
-                    out = True
-        if out: break
+            # ANNA: This code breaks my visualization
+            # for event in pygame.event.get():
+            #     time.sleep(0.1)
+            #     if event.type == pygame.QUIT:
+            #         out = True
+        if out:
+            break
         i += 1
     env.close()
     if savefile:

@@ -143,6 +143,41 @@ def ray_experiment_AP_eval(*args, gpu=True):
         print(rewards)
 
 
+def ray_experiment_BA_visualize(*args, gpu=True):
+    env_kwargs = {"map_size": 19}
+
+    red_count = get_num_agents(battle_v3, env_kwargs)['red']
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_1_name='red',
+                                               team_2_name='blue', team_1_policy='split', team_1_count=red_count)
+
+    trainer_config = {
+        "env": "battle",
+        "multiagent": {
+            "policies": policy_dict,
+            "policy_mapping_fn": policy_fn
+        },
+        "model": {
+            "conv_filters": [
+                [21, 13, 1]
+            ]
+        },
+        "env_config": env_kwargs,
+        "rollout_fragment_length": 100
+    }
+
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/PPO_battle_red-split_100')
+
+    # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
+    checkpoint = log_dir + '/checkpoint_000081/checkpoint-81'
+
+    if checkpoint:
+        # rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_kwargs, policy_fn, max_iter=1000)
+        # print(rewards)
+        render_from_checkpoint(checkpoint, trainer, battle_v3, env_kwargs, policy_fn)
+
+
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_kwargs = {"map_size": 30}
 
@@ -229,6 +264,7 @@ if __name__ == "__main__":
         auto_register_env_ray(env_name, env)
     # ray_experiment_AP_training_split(args)
     # ray_experiment_AP_training_share_split(gpu=args.gpu)
-    ray_experiment_BA_training_share_split(args)
+    # ray_experiment_BA_training_share_split(args)
+    ray_experiment_BA_visualize(args)
     # x = get_num_agents(battle_v3, {'map_size': 19})
     # print(x)
