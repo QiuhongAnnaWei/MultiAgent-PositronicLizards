@@ -20,9 +20,18 @@ env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': ti
                  'battlefield': battlefield_v3}
 
 env_spaces = {'adversarial-pursuit':
-                  {'action_space': Discrete(13), 'obs_space': Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)},
+                  {'action_space': Discrete(13),
+                   'obs_space': Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)},
               'battle':
-                  {'action_space': Discrete(21), 'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)}}
+                  {'action_space': Discrete(21),
+                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)},
+              'battlefield':
+                  {'action_space': Discrete(21),
+                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)},
+              'tiger-deer':
+                  {'action_space': Discrete(9),
+                   'obs_space': Box(low=0.0, high=1.0, shape=(9, 9, 5), dtype=np.float32)}
+              }
 
 
 class TeamPolicyConfig:
@@ -137,11 +146,6 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
 
 
 def ray_train_generic(*args, **kwargs):
-    # TODO: set up tooling around this
-    # env_config = {"map_size": 19}
-    # red_count = get_num_agents(battle_v3, env_config)['red']
-    # team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
-
     policy_dict, policy_fn = get_policy_config(**env_spaces[kwargs['env_name']], team_data=kwargs['team_data'])
     trainer_config = get_trainer_config(kwargs['env_name'], policy_dict, policy_fn, kwargs['env_config'], gpu=kwargs['gpu'])
     trainer = ppo.PPOTrainer(config=trainer_config)
@@ -149,8 +153,39 @@ def ray_train_generic(*args, **kwargs):
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_i{kwargs['train_iters']}__{uuid.uuid4().hex[:5]}")
-
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
+
+
+def ray_BF_training_share_split_retooled():
+    env_config = {'map_size': 55, 'dead_penalty': -6}
+    red_count = get_num_agents(battlefield_v3, env_config)['red']
+    team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
+    kwargs = {
+        'env_name': 'battlefield',
+        'team_data': team_data,
+        'env_config': env_config,
+        'train_iters': 100,
+        'log_intervals': 10,
+        'gpu': True
+    }
+
+    ray_train_generic(**kwargs)
+
+
+def ray_TD_training_share_split_retooled():
+    env_config = {'map_size': 55}
+    tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
+    team_data = [TeamPolicyConfig('tiger', method='split', count=tiger_count), TeamPolicyConfig('deer')]
+    kwargs = {
+        'env_name': 'tiger-deer',
+        'team_data': team_data,
+        'env_config': env_config,
+        'train_iters': 100,
+        'log_intervals': 10,
+        'gpu': True
+    }
+
+    ray_train_generic(**kwargs)
 
 
 def parse_args():
@@ -164,11 +199,15 @@ def parse_args():
                       'TD': ['tiger', 'deer']}
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument('experiment', help="train")
+    # parser.add_argument('experiment', help="train, peek")
     parser.add_argument('env', choices=['BA', 'AP', 'BF', 'TD'],
                         help=f"choice of environment for training\n{str(env_abreviation_dict)}")
     parser.add_argument('--no-gpu', dest='gpu', default=True, action='store_false',
                         help="disables gpu usage")
+    parser.add_argument('-i', '--train-iters', dest='train_iters', default=100,
+                        help="number of training iterations")
+    parser.add_argument('-li', '--log-intervals', dest='log_intervals', default=20,
+                        help="logging interval")
 
     args = parser.parse_args()
     args.env_name = env_abreviation_dict[args.env]
@@ -178,14 +217,14 @@ def parse_args():
 
 
 def main():
-    kwargs = parse_args()
+    # kwargs = parse_args()
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
 
-    # kwargs['team_data'] = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
+    # print(kwargs)
+    # pettingzoo_peek(tiger_deer_v3, {'map_size': 50})
+    ray_TD_training_share_split_retooled()
 
 
 if __name__ == "__main__":
     main()
-    # args = parse_args()
-    # print(args)

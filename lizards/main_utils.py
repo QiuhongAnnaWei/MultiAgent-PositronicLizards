@@ -155,7 +155,9 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     :return: a config dict for a Ray Trainer
     """
     convs = {"adversarial-pursuit": [[13, 10, 1]],
-             "battle": [[21, 13, 1]]}
+             "battle": [[21, 13, 1]],
+             "battlefield": [[21, 13, 1]],
+             'tiger-deer': [[9, 9, 1]]}
 
     trainer_config = {
         "env": env_name,
@@ -324,3 +326,16 @@ def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.9
 
     env.close()
     return rewards
+
+
+def pettingzoo_peek(env, env_config):
+    """
+    For taking a peek at a pettingzoo environment
+    :param env: pettingzoo env
+    :param env_config: config dictionary for the environment (e.g. {"map_size":30})
+    :return: None
+    """
+    e = env.env(**env_config)
+    e.reset()
+    e.render()
+    input("Press Enter to close window...")
