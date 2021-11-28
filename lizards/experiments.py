@@ -202,8 +202,9 @@ def ray_BF_training_share_split_retooled():
 def ray_BA_training_share_split_retooled():
     env_name = 'battle'
     env_config = {'map_size': 19, 'max_cycles': 10000}
-    red_count = get_num_agents(env_directory[env_name], env_config)['red']
-    team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
+    counts = get_num_agents(env_directory[env_name], env_config)
+    team_data = [TeamPolicyConfig('red', method='split', count=counts['red']),
+                 TeamPolicyConfig('blue', method='split', count=counts['blue'])]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
         'env_name': env_name,
@@ -211,16 +212,16 @@ def ray_BA_training_share_split_retooled():
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 200,
-        'log_intervals': 50,
+        'train_iters': 120,
+        'log_intervals': 20,
         'gpu': True
     }
 
-    # ray_train_generic(**kwargs, end_render=True)
-    ray_viz_generic(
-        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_red-split_100'
-                   '/checkpoint_000081/checkpoint-81',
-        **kwargs)
+    ray_train_generic(**kwargs, end_render=True)
+    # ray_viz_generic(
+    #     checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_red-split_100'
+    #                '/checkpoint_000081/checkpoint-81',
+    #     **kwargs)
 
 
 def ray_TD_training_share_split_retooled():
