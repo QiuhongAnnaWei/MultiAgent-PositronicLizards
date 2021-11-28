@@ -2,7 +2,7 @@ import os
 
 from main_utils import *
 # from stable_baselines3 import PPO
-from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
+from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3, combined_arms_v5
 import ray.rllib.agents.ppo as ppo
 import ray.rllib.agents.pg as pg
 from ray.tune.logger import pretty_print
@@ -17,7 +17,7 @@ import argparse
 import uuid
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
-                 'battlefield': battlefield_v3}
+                 'battlefield': battlefield_v3, "combined-arms": combined_arms_v5}
 
 env_spaces = {'adversarial-pursuit':
                   {'action_space': Discrete(13),
@@ -153,7 +153,9 @@ def ray_train_generic(*args, end_render=True, **kwargs):
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
-    checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
+
+    free_resources_after_train = kwargs.get("free_resources_after_train", False)
+    checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir, free_resources_after_train=free_resources_after_train)
 
     if kwargs['end_render']:
         render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
@@ -206,6 +208,8 @@ def ray_TD_training_share_split_retooled():
     ray_viz_generic(
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100-iters__f1282/checkpoint_000100/checkpoint-100',
         **kwargs)
+
+
 
 
 def parse_args():
