@@ -277,7 +277,7 @@ def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=
     """
     env_name = "combined-arms"
     ca_fn = env_directory[env_name]
-    env_config = {'map_size': map_size} # min map sz is 16
+    env_config = {'map_size': map_size, 'max_cycles': 10000} # min map sz is 16
 
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
     counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
@@ -307,7 +307,7 @@ def ray_CA_generalized(map_size=16):
 
     env_name = "combined-arms"
     ca_fn = env_directory[env_name]
-    env_config = {'map_size': map_size} # min map sz is 16
+    env_config = {'map_size': map_size, 'max_cycles': 10000} # min map sz is 16
 
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
     counts = {team: get_num_agents(ca_fn, env_config)[team] for team in teams}
