@@ -159,7 +159,6 @@ def ray_train_generic(*args, end_render=True, **kwargs):
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
     print(f"(from ray_train_generic) `log_dir` has been set to {log_dir}")
 
-    free_resources_after_train = kwargs.get("free_resources_after_train", False)
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir, free_resources_after_train=free_resources_after_train)
 
     if kwargs['end_render']:
