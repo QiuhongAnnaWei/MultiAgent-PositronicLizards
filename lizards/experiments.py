@@ -177,7 +177,7 @@ def ray_viz_generic(checkpoint, **kwargs):
 
 
 def ray_BF_training_share_split_retooled():
-    env_config = {'map_size': 55, 'dead_penalty': -4, 'max_cycles': 10000}
+    env_config = {'map_size': 55, 'max_cycles': 10000}
     red_count = get_num_agents(battlefield_v3, env_config)['red']
     team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['battlefield'], team_data=team_data)
@@ -192,7 +192,11 @@ def ray_BF_training_share_split_retooled():
         'gpu': True
     }
 
-    ray_train_generic(**kwargs, end_render=True)
+    # ray_train_generic(**kwargs, end_render=True)
+    ray_viz_generic(
+        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battlefield_red-split_100'
+                   '-iters__3a4d3/checkpoint_000100/checkpoint-100',
+        **kwargs)
 
 
 def ray_TD_training_share_split_retooled():
@@ -213,7 +217,8 @@ def ray_TD_training_share_split_retooled():
 
     # ray_train_generic(**kwargs)
     ray_viz_generic(
-        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100-iters__f1282/checkpoint_000100/checkpoint-100',
+        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100'
+                   '-iters__f1282/checkpoint_000100/checkpoint-100',
         **kwargs)
 
 
@@ -252,7 +257,6 @@ def ray_CA_generalized(map_sz=16):
     ca_fn = env_directory[env_nm]
     env_config = {'map_size': 16} # min map sz is 16
 
-
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
     counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
 
@@ -260,7 +264,7 @@ def ray_CA_generalized(map_sz=16):
         return [TeamPolicyConfig(t_i, method=m_i, count=(counts[t_i] if m_i=="split" else None)) for t_i, m_i in zip(teams, method_comb)]
 
     train_data_combs = [td_given_mcomb(m_comb) for m_comb in product(("split", "shared"), repeat=4)]
-    assert len((train_data_combs)) == 16
+    assert len(train_data_combs) == 16
 
     # To see that this gives us the training combinations we want, print the following
     for i, comb in enumerate(train_data_combs):
@@ -282,8 +286,6 @@ def ray_CA_generalized(map_sz=16):
     for i, kws in enumerate(train_comb_kwargs):
         print(f"\nStarting on training combination idx {i}")
         ray_train_generic(**kws)
-
-
 
 
 def parse_args():
@@ -324,7 +326,8 @@ def main():
     # print(kwargs)
     # pettingzoo_peek(battlefield_v3, {'map_size': 50})
     # ray_TD_training_share_split_retooled()
-    ray_CA_generalized()
+    # ray_CA_generalized()
+    ray_BF_training_share_split_retooled()
 
 
 if __name__ == "__main__":
