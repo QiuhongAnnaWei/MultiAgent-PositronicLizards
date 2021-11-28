@@ -161,7 +161,7 @@ def ray_train_generic(*args, end_render=True, **kwargs):
 
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir, free_resources_after_train=free_resources_after_train)
 
-    if kwargs['end_render']:
+    if end_render:
         render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
     return checkpoint, trainer
 
@@ -187,7 +187,6 @@ def ray_BF_training_share_split_retooled():
         'train_iters': 100,
         'log_intervals': 10,
         'gpu': True,
-        'end_render': False
     }
 
     ray_train_generic(**kwargs, end_render=True)
@@ -239,10 +238,9 @@ def ray_CA_red_split_blue_shared_TEST(map_sz=16, train_iters=8, log_intervals=2)
         'log_intervals': log_intervals,
         "free_resources_after_train": True,
         'gpu': False,
-        'end_render': True,
     }
 
-    ray_train_generic(**kwargs)
+    ray_train_generic(**kwargs, end_render=True)
 
 
 def ray_CA_generalized(map_sz=16):
@@ -274,7 +272,6 @@ def ray_CA_generalized(map_sz=16):
                                           'train_iters': 100,
                                           'log_intervals': 20,
                                           'gpu': True, 
-                                          'end_render': True,
                                           "free_resources_after_train": True, 
                                           # might need this if training back to back, but not sure. feel free to toggle it
                                           }
