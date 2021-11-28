@@ -187,6 +187,8 @@ def ray_BF_training_share_split_retooled():
         'env_config': env_config,
         'train_iters': 100,
         'log_intervals': 10,
+        'gpu': True,
+        'end_render': False
     }
 
     ray_train_generic(**kwargs, end_render=True)
