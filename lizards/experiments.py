@@ -271,13 +271,13 @@ def ray_AP_training_share_split_retooled():
     #     **kwargs)
 
 
-def ray_CA_red_split_blue_shared_TEST(map_sz=16, train_iters=8, log_intervals=2):
+def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=2):
     """
     Testing using a specific split-share combination before generalizing
     """
-    env_nm = "combined-arms"
-    ca_fn = env_directory[env_nm]
-    env_config = {'map_size': map_sz} # min map sz is 16
+    env_name = "combined-arms"
+    ca_fn = env_directory[env_name]
+    env_config = {'map_size': map_size} # min map sz is 16
 
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
     counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
@@ -286,11 +286,14 @@ def ray_CA_red_split_blue_shared_TEST(map_sz=16, train_iters=8, log_intervals=2)
                  TeamPolicyConfig(teams[1], method='split', count=counts[teams[1]]),
                  TeamPolicyConfig(teams[2], method='shared', count=counts[teams[2]]), 
                  TeamPolicyConfig(teams[3], method='shared', count=counts[teams[3]])] 
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
 
     kwargs = {
-        'env_name': env_nm,
+        'env_name': env_name,
         'team_data': team_data,
         'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
         'train_iters': train_iters,
         'log_intervals': log_intervals,
         'gpu': False,
@@ -299,42 +302,52 @@ def ray_CA_red_split_blue_shared_TEST(map_sz=16, train_iters=8, log_intervals=2)
     ray_train_generic(**kwargs, end_render=True)
 
 
-def ray_CA_generalized(map_sz=16):
-    """ Generalizing to all split-share combinations, but with fixed map_siz = 16 """
+def ray_CA_generalized(map_size=16):
+    """ Generalizing to all split-share combinations, but with fixed map_size"""
 
-    env_nm = "combined-arms"
-    ca_fn = env_directory[env_nm]
-    env_config = {'map_size': 16} # min map sz is 16
+    env_name = "combined-arms"
+    ca_fn = env_directory[env_name]
+    env_config = {'map_size': map_size} # min map sz is 16
 
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
-    counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
+    counts = {team: get_num_agents(ca_fn, env_config)[team] for team in teams}
 
-    def td_given_mcomb(method_comb):
+    # First make the method combinations
+    method_combos_red = product(("split", "shared"), repeat=2)  # cartesian product coz, conceptually, redmelee diff from redranged
+    method_combos_all = map(lambda red_combo: red_combo + ("shared", "shared"), method_combos_red)
+
+    # Then map over the method combinations to get the team data objects
+    def train_data_given_m_comb(method_comb):
         return [TeamPolicyConfig(t_i, method=m_i, count=(counts[t_i] if m_i=="split" else None)) for t_i, m_i in zip(teams, method_comb)]
 
-    train_data_combs = [td_given_mcomb(m_comb) for m_comb in product(("split", "shared"), repeat=4)]
-    assert len(train_data_combs) == 16
+    train_data_combs = [train_data_given_m_comb(m_comb) for m_comb in method_combos_all]
+    assert len(train_data_combs) == 4
 
     # To see that this gives us the training combinations we want, print the following
     for i, comb in enumerate(train_data_combs):
         print(f"\nTrain data idx {i}") 
-        for tpc in comb: 
-            print(tpc.__str__()) 
+        for team_policy_config in comb: 
+            print(team_policy_config) 
 
-    parametrized_kwargs = lambda t_data: {'env_name': env_nm,
-                                          'team_data': t_data,
-                                          'env_config': env_config,
-                                          'train_iters': 100,
-                                          'log_intervals': 20,
-                                          'gpu': True
-                                          # removed end_render flag since default in function param is True
-                                          }
+    # Finally, map over team data combinations to get kwargs for each of them
+    def parametrized_kwargs(team_data): 
+        policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+
+        return {'team_data': team_data,
+                'policy_dict': policy_dict,
+                'policy_fn': policy_fn,
+                'env_name': env_name,
+                'env_config': env_config,
+                'train_iters': 100,
+                'log_intervals': 20,
+                'gpu': True
+                }
 
     train_comb_kwargs = [parametrized_kwargs(td) for td in train_data_combs] 
 
-    for i, kws in enumerate(train_comb_kwargs):
-        print(f"\nStarting on training combination idx {i}")
-        ray_train_generic(**kws)
+    for i, kwargs in enumerate(train_comb_kwargs):
+        print(f"\nStarting on training with team data combination idx {i}")
+        ray_train_generic(**kwargs, end_render=True)
 
 
 def parse_args():
@@ -375,10 +388,11 @@ def main():
     # print(kwargs)
     # pettingzoo_peek(adversarial_pursuit_v3, {'map_size': 40})
     # ray_TD_training_share_split_retooled()
-    # ray_CA_generalized()
+    ray_CA_generalized()
+    # ray_BF_training_share_split_retooled()
     # ray_BF_training_share_split_retooled()
     # ray_BA_training_share_split_retooled()
-    ray_AP_training_share_split_retooled()
+    # ray_AP_training_share_split_retooled()
 
 
 if __name__ == "__main__":
