@@ -258,8 +258,8 @@ def ray_AP_training_share_split_retooled():
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 200,
-        'log_intervals': 40,
+        'train_iters': 120,
+        'log_intervals': 20,
         'gpu': True
     }
 
