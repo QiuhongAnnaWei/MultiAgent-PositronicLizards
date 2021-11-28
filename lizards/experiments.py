@@ -159,7 +159,7 @@ def ray_train_generic(*args, end_render=True, **kwargs):
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
     print(f"(from ray_train_generic) `log_dir` has been set to {log_dir}")
 
-    checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir, free_resources_after_train=free_resources_after_train)
+    checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
     if end_render:
         render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
@@ -236,7 +236,6 @@ def ray_CA_red_split_blue_shared_TEST(map_sz=16, train_iters=8, log_intervals=2)
         'env_config': env_config,
         'train_iters': train_iters,
         'log_intervals': log_intervals,
-        "free_resources_after_train": True,
         'gpu': False,
     }
 
@@ -271,9 +270,8 @@ def ray_CA_generalized(map_sz=16):
                                           'env_config': env_config,
                                           'train_iters': 100,
                                           'log_intervals': 20,
-                                          'gpu': True, 
-                                          "free_resources_after_train": True, 
-                                          # might need this if training back to back, but not sure. feel free to toggle it
+                                          'gpu': True
+                                          # removed end_render flag since default in function param is True
                                           }
 
     train_comb_kwargs = [parametrized_kwargs(td) for td in train_data_combs] 
