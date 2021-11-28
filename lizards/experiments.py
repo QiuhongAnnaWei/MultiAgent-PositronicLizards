@@ -30,7 +30,10 @@ env_spaces = {'adversarial-pursuit':
                    'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)},
               'tiger-deer':
                   {'action_space': Discrete(9),
-                   'obs_space': Box(low=0.0, high=1.0, shape=(9, 9, 5), dtype=np.float32)}
+                   'obs_space': Box(low=0.0, high=1.0, shape=(9, 9, 5), dtype=np.float32)},
+              'combined-arms':
+                  {'action_space': Discrete(25),
+                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 9), dtype=np.float32)}
               }
 
 
@@ -207,6 +210,7 @@ def ray_TD_training_share_split_retooled():
     ray_viz_generic(
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100-iters__f1282/checkpoint_000100/checkpoint-100',
         **kwargs)
+
 
 
 

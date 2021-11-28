@@ -157,7 +157,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     convs = {"adversarial-pursuit": [[13, 10, 1]],
              "battle": [[21, 13, 1]],
              "battlefield": [[21, 13, 1]],
-             'tiger-deer': [[9, 9, 1]]}
+             "tiger-deer": [[9, 9, 1]],
+             "combined-arms": [[25, 13, 1]]}
 
     trainer_config = {
         "env": env_name,
