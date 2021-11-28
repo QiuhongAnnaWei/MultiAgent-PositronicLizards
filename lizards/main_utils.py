@@ -143,7 +143,7 @@ def get_policy_config(action_space, obs_space, team_data):
     return policy_dict, policy_fn
 
 
-def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filters=None, gpu=True, **kwargs):
+def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filters=None, gpu=True, create_env_on_driver=False, **kwargs):
     """
     Gets a config dictionary for a Ray Trainer
     :param env_name: the Ray-registered environment name (e.g. 'adversarial-pursuit')
@@ -157,7 +157,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     convs = {"adversarial-pursuit": [[13, 10, 1]],
              "battle": [[21, 13, 1]],
              "battlefield": [[21, 13, 1]],
-             'tiger-deer': [[9, 9, 1]]}
+             "tiger-deer": [[9, 9, 1]],
+             "combined-arms": [[25, 13, 1]]}
 
     trainer_config = {
         "env": env_name,
@@ -171,6 +172,12 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         "env_config": env_config,
         "rollout_fragment_length": 1000
     }
+
+    if create_env_on_driver:
+        trainer_config["create_env_on_driver"] = True
+        # according to Ray Rllib video tutorial, setting this to true 
+        # facilitates evaluation after training (at least with their Trainer.evaluate() method)
+        # haven't tried this yet though. keeping it set to F by default since tt's the current default
 
     if gpu:
         trainer_config["num_gpus"] = 1

@@ -2,7 +2,7 @@ import os
 
 from main_utils import *
 # from stable_baselines3 import PPO
-from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
+from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3, combined_arms_v5
 import ray.rllib.agents.ppo as ppo
 import ray.rllib.agents.pg as pg
 from ray.tune.logger import pretty_print
@@ -15,9 +15,10 @@ from tensorflow import Tensor
 import tensorflow as tf
 import argparse
 import uuid
+from itertools import product
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
-                 'battlefield': battlefield_v3}
+                 'battlefield': battlefield_v3, "combined-arms": combined_arms_v5}
 
 env_spaces = {'adversarial-pursuit':
                   {'action_space': Discrete(13),
@@ -30,7 +31,10 @@ env_spaces = {'adversarial-pursuit':
                    'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)},
               'tiger-deer':
                   {'action_space': Discrete(9),
-                   'obs_space': Box(low=0.0, high=1.0, shape=(9, 9, 5), dtype=np.float32)}
+                   'obs_space': Box(low=0.0, high=1.0, shape=(9, 9, 5), dtype=np.float32)},
+              'combined-arms':
+                  {'action_space': Discrete(25),
+                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 9), dtype=np.float32)}
               }
 
 
@@ -153,6 +157,8 @@ def ray_train_generic(*args, end_render=True, **kwargs):
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
+    print(f"(from ray_train_generic) `log_dir` has been set to {log_dir}")
+
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
     if end_render:
@@ -211,6 +217,75 @@ def ray_TD_training_share_split_retooled():
         **kwargs)
 
 
+def ray_CA_red_split_blue_shared_TEST(map_sz=16, train_iters=8, log_intervals=2):
+    """
+    Testing using a specific split-share combination before generalizing
+    """
+    env_nm = "combined-arms"
+    ca_fn = env_directory[env_nm]
+    env_config = {'map_size': map_sz} # min map sz is 16
+
+    teams = ("redmelee", "redranged", "bluemele", "blueranged")
+    counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
+
+    team_data = [TeamPolicyConfig(teams[0], method='split', count=counts[teams[0]]),
+                 TeamPolicyConfig(teams[1], method='split', count=counts[teams[1]]),
+                 TeamPolicyConfig(teams[2], method='shared', count=counts[teams[2]]), 
+                 TeamPolicyConfig(teams[3], method='shared', count=counts[teams[3]])] 
+
+    kwargs = {
+        'env_name': env_nm,
+        'team_data': team_data,
+        'env_config': env_config,
+        'train_iters': train_iters,
+        'log_intervals': log_intervals,
+        'gpu': False,
+    }
+
+    ray_train_generic(**kwargs, end_render=True)
+
+
+def ray_CA_generalized(map_sz=16):
+    """ Generalizing to all split-share combinations, but with fixed map_siz = 16 """
+
+    env_nm = "combined-arms"
+    ca_fn = env_directory[env_nm]
+    env_config = {'map_size': 16} # min map sz is 16
+
+
+    teams = ("redmelee", "redranged", "bluemele", "blueranged")
+    counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
+
+    def td_given_mcomb(method_comb):
+        return [TeamPolicyConfig(t_i, method=m_i, count=(counts[t_i] if m_i=="split" else None)) for t_i, m_i in zip(teams, method_comb)]
+
+    train_data_combs = [td_given_mcomb(m_comb) for m_comb in product(("split", "shared"), repeat=4)]
+    assert len((train_data_combs)) == 16
+
+    # To see that this gives us the training combinations we want, print the following
+    for i, comb in enumerate(train_data_combs):
+        print(f"\nTrain data idx {i}") 
+        for tpc in comb: 
+            print(tpc.__str__()) 
+
+    parametrized_kwargs = lambda t_data: {'env_name': env_nm,
+                                          'team_data': t_data,
+                                          'env_config': env_config,
+                                          'train_iters': 100,
+                                          'log_intervals': 20,
+                                          'gpu': True
+                                          # removed end_render flag since default in function param is True
+                                          }
+
+    train_comb_kwargs = [parametrized_kwargs(td) for td in train_data_combs] 
+
+    for i, kws in enumerate(train_comb_kwargs):
+        print(f"\nStarting on training combination idx {i}")
+        ray_train_generic(**kws)
+
+
+
+
 def parse_args():
     env_abreviation_dict = {'BA': 'battle',
                             'AP': 'adversarial-pursuit',
@@ -249,7 +324,7 @@ def main():
     # print(kwargs)
     # pettingzoo_peek(battlefield_v3, {'map_size': 50})
     # ray_TD_training_share_split_retooled()
-    ray_BF_training_share_split_retooled()
+    ray_CA_generalized()
 
 
 if __name__ == "__main__":
