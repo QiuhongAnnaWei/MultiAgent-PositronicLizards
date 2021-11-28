@@ -155,7 +155,7 @@ def ray_train_generic(*args, end_render=True, **kwargs):
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
-    if kwargs['end_render']:
+    if end_render:
         render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
     return checkpoint, trainer
 
@@ -171,15 +171,18 @@ def ray_viz_generic(checkpoint, **kwargs):
 
 
 def ray_BF_training_share_split_retooled():
-    env_config = {'map_size': 55, 'dead_penalty': -6}
+    env_config = {'map_size': 55, 'dead_penalty': -4, 'max_cycles': 10000}
     red_count = get_num_agents(battlefield_v3, env_config)['red']
     team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battlefield'], team_data=team_data)
     kwargs = {
         'env_name': 'battlefield',
         'team_data': team_data,
         'env_config': env_config,
-        'train_iters': 100,
-        'log_intervals': 10,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 200,
+        'log_intervals': 50,
         'gpu': True
     }
 
@@ -244,7 +247,7 @@ def main():
         auto_register_env_ray(env_name, env)
 
     # print(kwargs)
-    # pettingzoo_peek(tiger_deer_v3, {'map_size': 30})
+    # pettingzoo_peek(battlefield_v3, {'map_size': 50})
     # ray_TD_training_share_split_retooled()
     ray_BF_training_share_split_retooled()
 
