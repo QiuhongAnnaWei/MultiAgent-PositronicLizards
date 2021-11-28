@@ -25,16 +25,16 @@ env_spaces = {'adversarial-pursuit':
                    'obs_space': Box(low=0.0, high=2.0, shape=(10, 10, 5), dtype=np.float32)},
               'battle':
                   {'action_space': Discrete(21),
-                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)},
+                   'obs_space': Box(low=0.0, high=2.0, shape=(13, 13, 5), dtype=np.float32)},
               'battlefield':
                   {'action_space': Discrete(21),
-                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 5), dtype=np.float32)},
+                   'obs_space': Box(low=0.0, high=2.0, shape=(13, 13, 5), dtype=np.float32)},
               'tiger-deer':
                   {'action_space': Discrete(9),
-                   'obs_space': Box(low=0.0, high=1.0, shape=(9, 9, 5), dtype=np.float32)},
+                   'obs_space': Box(low=0.0, high=2.0, shape=(9, 9, 5), dtype=np.float32)},
               'combined-arms':
                   {'action_space': Discrete(25),
-                   'obs_space': Box(low=0.0, high=1.0, shape=(13, 13, 9), dtype=np.float32)}
+                   'obs_space': Box(low=0.0, high=2.0, shape=(13, 13, 9), dtype=np.float32)}
               }
 
 
