@@ -106,14 +106,13 @@ def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=7, *args, gpu=True):
     trainer = ppo.PPOTrainer(config=ray_trainer_config)
 
     # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/Some_checkpoint_filename')
-    checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1)
     checkpoint = train_ray_trainer(trainer, num_iters=training_setup["train_iters"], 
                                             log_intervals=training_setup['log_intervals'], 
                                             log_dir=training_setup["log_dir"])
 
 
-    if checkpoint:
-        render_from_checkpoint(checkpoint, trainer, env_fn, env_config, policy_fn)
+    # if checkpoint:
+        # render_from_checkpoint(checkpoint, trainer, env_fn, env_config, policy_fn)
 
 
 
