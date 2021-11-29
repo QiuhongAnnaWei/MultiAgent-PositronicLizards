@@ -166,14 +166,14 @@ def ray_train_generic(*args, end_render=True, **kwargs):
     return checkpoint, trainer
 
 
-def ray_viz_generic(checkpoint, **kwargs):
+def ray_viz_generic(checkpoint, max_iter=10000, savefile=False, **kwargs):
     trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
                                         kwargs['env_config'],
                                         gpu=kwargs['gpu'])
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'],
-                           kwargs['policy_fn'], max_iter=10000)
+                           kwargs['policy_fn'], max_iter=max_iter, savefile=savefile)
 
 
 def ray_BF_training_share_split_retooled():
@@ -199,7 +199,8 @@ def ray_BF_training_share_split_retooled():
         **kwargs)
 
 
-def ray_BA_training_share_pretrained(checkpoint="", end_render=True, pre_trained_policy="red_shared"):
+def ray_BA_training_share_pretrained(checkpoint='./logs/pretrained/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100',
+                                    end_render=True, pre_trained_policy="red_shared"):
     env_name = 'battle'
     env_config = {'map_size': 19, 'max_cycles': 10000}
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
@@ -210,30 +211,34 @@ def ray_BA_training_share_pretrained(checkpoint="", end_render=True, pre_trained
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 120,
-        'log_intervals': 20,
-        'gpu': True
+        'train_iters': 2,
+        'log_intervals': 1,
+        'gpu': False
     }
-    # ray_train_generic(**kwargs, end_render=True)
+    ## Transfer partial weights
     trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
                                         kwargs['env_config'], gpu=kwargs['gpu'])
     temp_trainer = ppo.PPOTrainer(config=trainer_config)
     temp_trainer.restore(checkpoint)
-    weights = temp_trainer.get_policy([pre_trained_policy]).get_weights() # get the learnt weights
+    weights = temp_trainer.get_policy(pre_trained_policy).get_weights() # get the learnt weights
     temp_trainer.stop()
-
     trainer = ppo.PPOTrainer(config=trainer_config)
-    trainer.get_policy([pre_trained_policy]).set_weights(weights) # transfer the weigths (blue has untrained weigths)
+    trainer.get_policy(pre_trained_policy).set_weights(weights) # transfer the weigths (blue has untrained weigths)
     
+    ## Train
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_pre-trained-{pre_trained_policy}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
+                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_pretrained-{pre_trained_policy}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
     print(f"(from ray_BA_training_share_pretrained) `log_dir` has been set to {log_dir}")
-
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
+    ## Render/Evaluate
     if end_render:
-        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=True)
+    rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000) 
+    print("\n ### POLICY EVALUATION: REWARDS ###")
+    for key in rewards:
+        print(f"{key}: {rewards[key]}")
 
 
 def ray_BA_training_share_split_retooled():
@@ -425,11 +430,13 @@ def main():
     # print(kwargs)
     # pettingzoo_peek(adversarial_pursuit_v3, {'map_size': 40})
     # ray_TD_training_share_split_retooled()
-    ray_CA_generalized()
+    # ray_CA_generalized()
     # ray_BF_training_share_split_retooled()
     # ray_BF_training_share_split_retooled()
+    ray_BA_training_share_pretrained()
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()
+    print("\n DONE")
 
 
 if __name__ == "__main__":
