@@ -89,6 +89,7 @@ class APTCallback_BF(DefaultCallbacks):
         """ will be called at the end of Trainable.train()"""
         
         curr_iter = trainer.iteration
+        print(f"curr_iter is {curr_iter}")
         if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.interval_len == 0):
             team_to_freeze = self.curr_trainable_policies
             team_to_train = self.get_other_team()  # this will be str
