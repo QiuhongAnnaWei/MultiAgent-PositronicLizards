@@ -30,7 +30,7 @@ convs = {"adversarial-pursuit": [[13, 10, 1]],
              "combined-arms": [[25, 13, 1]]}
 
 
-class AlternatingPolicyTrainCallback(DefaultCallbacks):
+class AlternatingPolicyTrainCallback_AP(DefaultCallbacks):
     """ 
     Assumptions being made:
     * This proof of concept prototype is specialized to the Adversarial Pursuit environment
@@ -95,7 +95,7 @@ def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=25, *args, gpu=True):
     
     ray_trainer_config = {
 
-        "callbacks": AlternatingPolicyTrainCallback, # IMPT
+        "callbacks": AlternatingPolicyTrainCallback_AP, # IMPT
 
         "env": env_name,
         "multiagent": {
