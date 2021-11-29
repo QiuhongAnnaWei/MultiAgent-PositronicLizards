@@ -345,7 +345,7 @@ def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=
 
 
 def ray_CA_generalized(map_size=16):
-    """ Generalizing to all split-share combinations, but with fixed map_size"""
+    """ Generalizing to more than one split-share combination, but with fixed map_size"""
 
     env_name = "combined-arms"
     ca_fn = env_directory[env_name]
