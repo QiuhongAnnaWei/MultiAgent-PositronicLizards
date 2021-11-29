@@ -285,7 +285,7 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         #     diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}_{i}.jpg'))
 
 
-def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=500):
+def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=100):
     """
     Evaluates a set of policies on an environment
     :param checkpoint: a file path to a checkpoint to load to generate visualizations
