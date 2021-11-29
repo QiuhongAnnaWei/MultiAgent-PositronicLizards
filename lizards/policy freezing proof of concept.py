@@ -62,6 +62,8 @@ class AlternatingPolicyTrainCallback(DefaultCallbacks):
         if curr_iter > 0 and curr_iter % self.interval_len == 0:
             team_to_freeze = self.curr_trainable_policies
             team_to_train = self.get_other_team()
+            print(team_to_train)
+            self.curr_trainable_policies = {team_to_train}
 
             print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
 
