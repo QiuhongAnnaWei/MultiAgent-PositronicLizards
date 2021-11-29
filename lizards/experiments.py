@@ -180,7 +180,7 @@ def ray_viz_generic(checkpoint, max_iter=10000, savefile=False, **kwargs):
 
 
 def ray_BF_training_share_split_retooled():
-    env_config = {'map_size': 55, 'max_cycles': 10000}
+    env_config = {'map_size': 55}
     red_count = get_num_agents(battlefield_v3, env_config)['red']
     team_data = [TeamPolicyConfig('red', method='split', count=red_count), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['battlefield'], team_data=team_data)
@@ -202,10 +202,10 @@ def ray_BF_training_share_split_retooled():
         **kwargs)
 
 
-def ray_BA_training_share_pretrained(checkpoint='./logs/pretrained/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100',
+def ray_BA_training_share_pretrained(checkpoint='/logs/pretrained/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100',
                                     end_render=True, pre_trained_policy="red_shared"):
     env_name = 'battle'
-    env_config = {'map_size': 19, 'max_cycles': 10000}
+    env_config = {'map_size': 19}
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
@@ -238,7 +238,7 @@ def ray_BA_training_share_pretrained(checkpoint='./logs/pretrained/PPO_battle_10
     ## Render/Evaluate
     if end_render:
         render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=True)
-    rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000) 
+    rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=1000)
     print("\n ### POLICY EVALUATION: REWARDS ###")
     for key in rewards:
         print(f"{key}: {rewards[key]}")
@@ -271,7 +271,7 @@ def ray_BA_training_share_split_retooled():
 
 
 def ray_TD_training_share_split_retooled():
-    env_config = {'map_size': 30, 'max_cycles': 10000}
+    env_config = {'map_size': 30}
     tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
     team_data = [TeamPolicyConfig('tiger', method='split', count=tiger_count), TeamPolicyConfig('deer')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
@@ -295,7 +295,7 @@ def ray_TD_training_share_split_retooled():
 
 def ray_AP_training_share_split_retooled():
     env_name = 'adversarial-pursuit'
-    env_config = {'map_size': 40, 'max_cycles': 10000}
+    env_config = {'map_size': 40}
     predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
     team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
     # team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
@@ -323,7 +323,7 @@ def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=
     """
     env_name = "combined-arms"
     ca_fn = env_directory[env_name]
-    env_config = {'map_size': map_size, 'max_cycles': 5000} # min map sz is 16
+    env_config = {'map_size': map_size} # min map sz is 16
 
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
     counts = {t: get_num_agents(ca_fn, env_config)[t] for t in teams}
@@ -353,7 +353,7 @@ def ray_CA_generalized(map_size=16):
 
     env_name = "combined-arms"
     ca_fn = env_directory[env_name]
-    env_config = {'map_size': map_size, 'max_cycles': 5000} # min map sz is 16
+    env_config = {'map_size': map_size} # min map sz is 16
 
     teams = ("redmelee", "redranged", "bluemele", "blueranged")
     counts = {team: get_num_agents(ca_fn, env_config)[team] for team in teams}
@@ -436,10 +436,10 @@ def main():
     # ray_TD_training_share_split_retooled()
     # ray_CA_generalized()
     # ray_BF_training_share_split_retooled()
-    ray_BA_training_share_split_retooled()
+    # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()  # Run this after Local (2) finishes.
     # ray_BF_training_share_split_retooled()
-    ray_BA_training_share_pretrained()
+    ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()
     print("\n DONE")
