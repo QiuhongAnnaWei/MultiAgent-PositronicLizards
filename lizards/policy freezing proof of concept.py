@@ -102,26 +102,6 @@ class APTCallback_BF(DefaultCallbacks):
                 worker.set_policies_to_train(self.curr_trainable_policies)
             
             trainer.workers.foreach_worker(_set)
-
-
-# I'm not 100% sure the mixin will work well with Ray, so don't use this if you want to be sure things will work. 
-# Tho the mixin does at least seem to add the relevant methods
-# This is definitely the way to make the code more reusable though --- just needs more testing first
-# class APTCallback_AP(DefaultCallbacks, TwoTeamOnTrainResultMixin):
-
-#     def __init__(self):
-#         super().__init__()
-
-#         self.teams = ("predator", "prey") 
-#         self.curr_trainable_policies = {"predator"} 
-#         # Start with predator being the one whose policy's being trained
-
-#         self.burn_in_iters = 0 
-#         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
-
-#         self.interval_len = 3
-#         # The point of this, recall, is to train one team while keeping the other frozen for regular intervals
-#         # interval_len := number of iterations that each interval consists in
     
 
 class APTCallback_AP(DefaultCallbacks):
@@ -164,6 +144,26 @@ class APTCallback_AP(DefaultCallbacks):
                 worker.set_policies_to_train(self.curr_trainable_policies)
             
             trainer.workers.foreach_worker(_set)
+
+# Demonstration of how to make code more reusable with mixins:
+# I'm not 100% sure the mixin will work well with Ray though, so caveat emptor 
+# Tho the mixin does at least seem to add the relevant methods
+# This is definitely the way to make the code more reusable though --- just needs more testing first
+# class APTCallback_AP(DefaultCallbacks, TwoTeamOnTrainResultMixin):
+
+#     def __init__(self):
+#         super().__init__()
+
+#         self.teams = ("predator", "prey") 
+#         self.curr_trainable_policies = {"predator"} 
+#         # Start with predator being the one whose policy's being trained
+
+#         self.burn_in_iters = 0 
+#         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
+
+#         self.interval_len = 3
+#         # The point of this, recall, is to train one team while keeping the other frozen for regular intervals
+#         # interval_len := number of iterations that each interval consists in
 
 
 
