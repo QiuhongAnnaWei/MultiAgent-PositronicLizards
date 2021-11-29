@@ -219,14 +219,19 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
     """
     Visualize from given checkpoint.
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
-    :param checkpoint: a file path to a checkpoint to load to generate visualizations
+    :param checkpoint: a file path to a checkpoint to load to generate visualizations; if None, expect trainer to already been restored
     :param trainer: trainer associated with the checkpoint
     :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
     :param env_config: config dictionary for the environment (e.g. {"map_size":30})
     :param policy_fn: policy_fn returned from get_policy_config()
     :return: None
     """
-    trainer.restore(checkpoint)
+    if checkpoint:
+        trainer.restore(checkpoint)
+    else: # for path
+        checkpoint = "logs/render_from_checkpoint/visualization"
+        if not os.path.exists(os.path.split(checkpoint)[0]): os.makedirs(os.path.split(checkpoint)[0])
+        
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
@@ -234,13 +239,8 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
     env.reset()
 
     if savefile:
-        width, height = 240, 255
-        img = np.zeros((width, height))
         diff_frame_list = []
-        import cv2
-        save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.mp4')
-        print("\n# Saving video to:", save_path)
-        video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
+        width,height,img = None, None, None
     for agent in env.agent_iter(max_iter=max_iter):
         observation, reward, done, info = env.last()
         if done:
@@ -256,9 +256,12 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
             action = single_action
         env.step(action)
 
-        out = False
+        # out = False
         if savefile:
             img2 = PIL.Image.fromarray(env.render(mode='rgb_array'))
+            if img is None:
+                width, height = img2.width, img2.height
+                img = np.zeros((width, height))
             if np.array_equal(np.array(img), np.array(img2)) == False:
                 diff_frame_list.append(img2)
             img = img2
@@ -267,28 +270,31 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
             #     frame_list.append(PIL.Image.fromarray(env.render(mode='rgb_array')))
         else:
             env.render(mode='human')
-            # ANNA: This code breaks my visualization
+            # ANNA: This code fixes my visualization
             # for event in pygame.event.get():
             #     time.sleep(0.1)
             #     if event.type == pygame.QUIT:
             #         out = True
-        if out:
-            break
+        # if out:  break
         i += 1
     env.close()
     if savefile:
         save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.gif')
         print("\n# Saving gif to:", save_path)
         diff_frame_list[0].save(save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
-        # for i, image in enumerate(diff_frame_list):
-        #     video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
-        #     diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}_{i}.jpg'))
+        import cv2
+        save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.mp4')
+        print("\n# Saving video to:", save_path)
+        video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
+        for i, image in enumerate(diff_frame_list):
+            video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
+            # diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}_{i}.jpg'))
 
 
 def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=500):
     """
     Evaluates a set of policies on an environment
-    :param checkpoint: a file path to a checkpoint to load to generate visualizations
+    :param checkpoint: a file path to a checkpoint to load to generate visualizations; if None, expect trainer to already been restored
     :param trainer: trainer associated with the checkpoint
     :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
     :param env_config: config dictionary for the environment (e.g. {"map_size":30})
@@ -297,7 +303,8 @@ def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.9
     :param max_iter: number of iterations to evaluate policies
     :return: dictionary of cumulative discounted rewards per each policy in the trainer
     """
-    trainer.restore(checkpoint)
+    if checkpoint:
+        trainer.restore(checkpoint)
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
