@@ -11,6 +11,8 @@ from ray.rllib.agents.ppo import PPOTrainer
 from ray.tune import CLIReporter, register_env
 
 
+
+
 # policy freezing and unfreezing stuff
 # ====================================
 # For info on Rllib callbacks: https://docs.ray.io/en/latest/_modules/ray/rllib/agents/callbacks.html#DefaultCallbacks.on_train_result
@@ -20,6 +22,12 @@ from ray.tune import CLIReporter, register_env
 # https://github.com/ray-project/ray/issues/6669
 # https://github.com/ray-project/ray/blob/fd13bac9b3fc2e7142065c759f2c9fc1c753e912/rllib/examples/self_play_league_based_with_open_spiel.py
 # https://github.com/ray-project/ray/blob/fd13bac9b3fc2e7142065c759f2c9fc1c753e912/rllib/examples/self_play_with_open_spiel.py
+
+convs = {"adversarial-pursuit": [[13, 10, 1]],
+             "battle": [[21, 13, 1]],
+             "battlefield": [[21, 13, 1]],
+             "tiger-deer": [[9, 9, 1]],
+             "combined-arms": [[25, 13, 1]]}
 
 
 class AlternatingPolicyTrainCallback(DefaultCallbacks):
@@ -37,7 +45,7 @@ class AlternatingPolicyTrainCallback(DefaultCallbacks):
         # Start with predator being the one whose policy's being trained
 
 
-        self.interval_len = 5  
+        self.interval_len = 3
         # The point of this, recall, is to train one team while keeping the other frozen for regular intervals
         # interval_len := number of iterations that each interval consists in
 
@@ -52,7 +60,7 @@ class AlternatingPolicyTrainCallback(DefaultCallbacks):
         
         curr_iter = trainer.iteration
         if curr_iter > 0 and curr_iter % self.interval_len == 0:
-            team_to_freeze = self.curr_team_being_trained
+            team_to_freeze = self.curr_trainable_policies
             team_to_train = self.get_other_team()
 
             print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
@@ -64,24 +72,24 @@ class AlternatingPolicyTrainCallback(DefaultCallbacks):
             trainer.workers.foreach_worker(_set)
 
 
-
-
 # env-specific things
 # ===================
-def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=7, *args, gpu=True):
+def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=25, *args, gpu=True):
     """ This uses policy sharing for each of the teams to keep things simple """
 
-    training_setup = {"train_iters": 4,
-                      "log_intervals": 1,
-                      "log_dir": os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/AP_alternating_policy_freezing_proof_concept')}
+    #training_setup = {"train_iters": 4,
+    #                  "log_intervals": 1,
+    #                  "log_dir": os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/AP_alternating_policy_freezing_proof_concept')}
+    conv_filters = None
 
     env_name = "adversarial-pursuit"
     env_fn = env_directory[env_name]
-    env_config = {'map_size': map_size, 'max_cycles': 5000} # min map sz is 7 for AP
+    env_config = {'map_size': map_size} # min map sz is 7 for AP
 
     action_space, obs_space = env_spaces[env_name]["action_space"], env_spaces[env_name]["obs_space"]
 
-    pol_mapping_fn = lambda agent_id: "predator" if agent_id.startswith("predator") else "prey"
+    def pol_mapping_fn(agent_id, episode, worker, **kwargs):
+        return "predator" if agent_id.startswith("predator") else "prey"
     
     ray_trainer_config = {
 
@@ -90,14 +98,14 @@ def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=7, *args, gpu=True):
         "env": env_name,
         "multiagent": {
             "policies": {"predator": (None, obs_space, action_space, dict()),
-                         "prey": (None, obs_space, action_space, dict())}
+                         "prey": (None, obs_space, action_space, dict())},
             "policy_mapping_fn": pol_mapping_fn
         },
         "model": {
             "conv_filters": convs[env_name] if conv_filters is None else conv_filters
         },
         "env_config": env_config,
-        "rollout_fragment_length": 100,
+        "rollout_fragment_length": 40,
         "create_env_on_driver": True, # potentially disable this?
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
@@ -106,9 +114,10 @@ def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=7, *args, gpu=True):
     trainer = ppo.PPOTrainer(config=ray_trainer_config)
 
     # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/Some_checkpoint_filename')
-    checkpoint = train_ray_trainer(trainer, num_iters=training_setup["train_iters"], 
-                                            log_intervals=training_setup['log_intervals'], 
-                                            log_dir=training_setup["log_dir"])
+    #checkpoint = train_ray_trainer(trainer, num_iters=training_setup["train_iters"], 
+                                           # log_intervals=training_setup['log_intervals'], 
+                                            #log_dir=training_setup["log_dir"])
+    checkpoint = train_ray_trainer(trainer)
 
 
     # if checkpoint:
@@ -117,6 +126,8 @@ def ray_AP_alternating_pol_freezing_PROTOTYPE(map_size=7, *args, gpu=True):
 
 
 if __name__ == "__main__":
+    for env_name, env in env_directory.items():
+        auto_register_env_ray(env_name, env)
     ray_AP_alternating_pol_freezing_PROTOTYPE()
 
 
