@@ -149,7 +149,7 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
 
-def ray_train_generic(*args, end_render=True, **kwargs):
+def ray_train_generic(*args, end_render=True, savefile=False, **kwargs):
     trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
                                         kwargs['env_config'], gpu=kwargs['gpu'])
     trainer = ppo.PPOTrainer(config=trainer_config)
@@ -162,7 +162,7 @@ def ray_train_generic(*args, end_render=True, **kwargs):
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
     if end_render:
-        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=savefile)
     return checkpoint, trainer
 
 
@@ -189,11 +189,11 @@ def ray_experiment_BF_training_shared(*args, gpu=True):
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 2,
-        'log_intervals': 50,
-        'gpu': False
+        'train_iters': 10,
+        'log_intervals': 5,
+        'gpu': True
     }
-    ray_train_generic(**kwargs, end_render=True)
+    ray_train_generic(**kwargs, end_render=True, savefile=True)
 
 
 def ray_BF_training_share_split_retooled():
