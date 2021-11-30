@@ -186,6 +186,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         trainer_config["num_gpus_per_worker"] = 0.5
     else:  # For CPU training only:
         trainer_config["num_gpus"] = 0
+        trainer_config["num_cpus_per_worker"] = 10
 
     trainer_config.update(kwargs)
     return trainer_config
