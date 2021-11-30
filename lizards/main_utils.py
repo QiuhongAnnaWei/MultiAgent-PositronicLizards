@@ -2,7 +2,7 @@ import supersuit as ss
 from pettingzoo.utils.conversions import to_parallel
 import multiprocessing
 import time
-from stable_baselines3 import PPO
+# from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
