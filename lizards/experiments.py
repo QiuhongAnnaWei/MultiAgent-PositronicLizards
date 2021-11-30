@@ -179,7 +179,7 @@ def ray_viz_generic(checkpoint, max_iter=10000, savefile=False, **kwargs):
                            kwargs['policy_fn'], max_iter=max_iter, savefile=savefile)
 
 
-def ray_experiment_BF_training_shared(*args, gpu=True):
+def ray_experiment_BF_training_shared(*args):
     env_config = {'map_size': 55}
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces['battlefield'], team_data=team_data)
@@ -189,11 +189,27 @@ def ray_experiment_BF_training_shared(*args, gpu=True):
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 10,
-        'log_intervals': 5,
-        'gpu': True
+        'train_iters': 50,
+        'log_intervals': 10,
+        'gpu': False
     }
-    ray_train_generic(**kwargs, end_render=True, savefile=True)
+    # ray_train_generic(**kwargs, end_render=True, savefile=True)
+    trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
+                                        kwargs['env_config'], gpu=kwargs['gpu'])
+    trainer = ppo.PPOTrainer(config=trainer_config)
+    checkpoint = 'logs/PPO_battlefield_10-iters__fa60e/checkpoint_000010/checkpoint-10'
+    trainer.restore(checkpoint)
+
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battlefield_10-iters__fa60e-2")
+    print(f"\n(from ray_train_generic) `log_dir` has been set to {log_dir}")
+    checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
+
+    ## Render/Evaluate
+    render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=True)
+    rewards = evaluate_policies(checkpoint, trainer, battlefield_v3, env_config, policy_fn, max_iter=10000)
+    print("\n ### (ray_experiment_BF_training_shared) POLICY EVALUATION: REWARDS ###")
+    for key in rewards:
+        print(f"{key}: {rewards[key]}")
 
 
 def ray_BF_training_share_split_retooled():
