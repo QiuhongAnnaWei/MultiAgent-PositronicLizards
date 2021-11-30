@@ -156,7 +156,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     """
     convs = {"adversarial-pursuit": [[13, 10, 1]],
              "battle": [[21, 13, 1]],
-             "battlefield": [[7, [3, 3], 1], [21, [3, 3], 2], [21, [7,7], 1]], # 7(13x13)-3(7x7)-1(1x1)filtes
+             "battlefield": [[21, 13, 1]],
+            #  "battlefield": [[7, [3, 3], 1], [21, [3, 3], 2], [21, [7,7], 1]], # 7(13x13)-3(7x7)-1(1x1)filtes
              "tiger-deer": [[9, 9, 1]],
              "combined-arms": [[25, 13, 1]]}
     conv_activation = "relu" #  "tanh", "relu", "swish" (or "silu")
