@@ -150,15 +150,16 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     :param policy_dict: policy_dict from get_policy_config
     :param policy_fn: policy_fn from get_policy_config
     :param env_config: a dictionary of arguments for the environment (e.g. map_size=30)
-    :param conv_filters: [optional] a list of convolutional filters
+    :param conv_filters: [optional] a list of convolutional filters (out_channels, kernel, stride)
     :param kwargs: any other keyword arguments you want to put into the trainer config dict
     :return: a config dict for a Ray Trainer
     """
     convs = {"adversarial-pursuit": [[13, 10, 1]],
              "battle": [[21, 13, 1]],
-             "battlefield": [[21, 13, 1]],
+             "battlefield": [[7, [3, 3], 1], [21, [3, 3], 2], [21, [7,7], 1]], # 7(13x13)-3(7x7)-1(1x1)filtes
              "tiger-deer": [[9, 9, 1]],
              "combined-arms": [[25, 13, 1]]}
+    conv_activation = "relu" #  "tanh", "relu", "swish" (or "silu")
 
     trainer_config = {
         "env": env_name,
@@ -167,7 +168,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
             "policy_mapping_fn": policy_fn
         },
         "model": {
-            "conv_filters": convs[env_name] if conv_filters is None else conv_filters
+            "conv_filters": convs[env_name] if conv_filters is None else conv_filters,
+            "conv_activation": conv_activation
         },
         "env_config": env_config,
         "rollout_fragment_length": 500
