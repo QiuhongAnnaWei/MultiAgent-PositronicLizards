@@ -157,7 +157,7 @@ def ray_train_generic(*args, end_render=True, **kwargs):
     policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
-    print(f"(from ray_train_generic) `log_dir` has been set to {log_dir}")
+    print(f"\n(from ray_train_generic) `log_dir` has been set to {log_dir}")
 
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
@@ -177,6 +177,23 @@ def ray_viz_generic(checkpoint, max_iter=10000, savefile=False, **kwargs):
 
     render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'],
                            kwargs['policy_fn'], max_iter=max_iter, savefile=savefile)
+
+
+def ray_experiment_BF_training_shared(*args, gpu=True):
+    env_config = {'map_size': 55}
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battlefield'], team_data=team_data)
+    kwargs = {
+        'env_name': 'battlefield',
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 2,
+        'log_intervals': 50,
+        'gpu': False
+    }
+    ray_train_generic(**kwargs, end_render=True)
 
 
 def ray_BF_training_share_split_retooled():
@@ -435,11 +452,12 @@ def main():
     # pettingzoo_peek(battle_v3, {'map_size': 30})
     # ray_TD_training_share_split_retooled()
     # ray_CA_generalized()
+    ray_experiment_BF_training_shared()
     # ray_BF_training_share_split_retooled()
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()  # Run this after Local (2) finishes.
     # ray_BF_training_share_split_retooled()
-    ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
+    # ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()
     print("\n DONE")
