@@ -43,7 +43,8 @@ class TwoTeamOnTrainResultMixin:
         return other_team
 
     def on_train_result(self, *, trainer, result, **kwargs):
-        """ will be called at the end of Trainable.train()"""
+        """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
+        (Iteration 0 is the state when *no* training has been done.)"""
         
         curr_iter = trainer.iteration
         if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.interval_len == 0):
@@ -52,7 +53,7 @@ class TwoTeamOnTrainResultMixin:
             print(team_to_train)
             self.curr_trainable_policies = {team_to_train}
 
-            print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
+            print(f"On iter {curr_iter + 1}, {team_to_freeze} will be frozen, {team_to_train} will be trained")
 
             def _set(worker):
                 # Note: `_set` must be enclosed in `on_train_result`!
@@ -87,16 +88,17 @@ class APTCallback_BF(DefaultCallbacks):
         return other_team
 
     def on_train_result(self, *, trainer, result, **kwargs):
-        """ will be called at the end of Trainable.train()"""
+                """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
+        (Iteration 0 is the state when *no* training has been done.)"""
         
         curr_iter = trainer.iteration
-        print(f"curr_iter is {curr_iter}")
+        print(f"Just finished train iter {curr_iter}")
         if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.interval_len == 0):
             team_to_freeze = self.curr_trainable_policies
             team_to_train = self.get_other_team()  # this will be str
             self.curr_trainable_policies = {team_to_train}
 
-            print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
+            print(f"On iter {curr_iter + 1}, {team_to_freeze} will be frozen, {team_to_train} will be trained")
 
             def _set(worker):
                 print(f"_set has been called; self.curr_trainable_policies are {self.curr_trainable_policies}")
@@ -122,10 +124,11 @@ class APTCallback_BF_to_wrap(DefaultCallbacks):
         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
 
     def on_train_result(self, *, trainer, result, **kwargs):
-        """ will be called at the end of Trainable.train()"""
+        """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
+        (Iteration 0 is the state when *no* training has been done.)"""
 
         curr_iter = trainer.iteration
-        print(f"curr_iter is {curr_iter}")
+        print(f"Just finished train iter {curr_iter}")
         if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.turn_lengths_sum) in self.team_to_turn_length.values():
             team_to_freeze = self.curr_trainable_policies # for debug
 
@@ -133,7 +136,7 @@ class APTCallback_BF_to_wrap(DefaultCallbacks):
 
             team_to_train = self.curr_trainable_policies # for debug
 
-            print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
+            print(f"On iter {curr_iter + 1}, {team_to_freeze} will be frozen, {team_to_train} will be trained")
 
             def _set(worker):
                 print(f"_set has been called; self.curr_trainable_policies are {self.curr_trainable_policies}")
@@ -166,7 +169,8 @@ class APTCallback_AP(DefaultCallbacks):
         return other_team
 
     def on_train_result(self, *, trainer, result, **kwargs):
-        """ will be called at the end of Trainable.train()"""
+        """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
+        (Iteration 0 is the state when *no* training has been done.)"""
         
         curr_iter = trainer.iteration
         if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.interval_len == 0):
@@ -174,7 +178,7 @@ class APTCallback_AP(DefaultCallbacks):
             team_to_train = self.get_other_team()  # this will be str
             self.curr_trainable_policies = {team_to_train}
 
-            print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
+            print(f"On iter {curr_iter + 1}, {team_to_freeze} will be frozen, {team_to_train} will be trained")
 
             def _set(worker):
                 print(f"_set has been called; self.curr_trainable_policies are {self.curr_trainable_policies}")
