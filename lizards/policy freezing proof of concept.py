@@ -30,6 +30,45 @@ convs = {"adversarial-pursuit": [[13, 10, 1]],
          "combined-arms": [[25, 13, 1]]}
 
 
+def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
+
+    def get_and_log_wts(trainer):
+        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
+        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
+        policy_weights.append(copied_policy_wts_from_local_worker)
+
+    true_start = time.time()
+
+    results_dicts = []
+    policy_weights_for_iters = []
+
+    for i in range(num_iters):
+        print(f"Starting training on iter {i + 1}...")
+        start = time.time()
+        
+        result = trainer.train()
+        results_dicts.append(result)
+
+        print(f"batch {i + 1}: took {time.time() - start} seconds")
+
+        get_and_log_wts(trainer)
+
+        # if (i + 1) % log_intervals == 0:
+        #     checkpoint = trainer.save(log_dir)
+        #     print("checkpoint saved at", checkpoint)
+
+    timestamp = get_timestamp()
+
+    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
+    pd.DataFrame(results_dicts).to_csv(results_save_path)
+
+    print(f"results_dicts saved to {results_save_path}")
+
+    print(f"Full training took {(time.time() - true_start) / 60.0} min")
+
+    return results_dicts, policy_weights_for_iters
+
+
 """ 
 Assumptions:
 * Code below was designed for 2-team environments
@@ -118,9 +157,8 @@ class APTCallback_BF_to_wrap(DefaultCallbacks):
         self.turn_lengths_sum = sum(self.team_to_turn_length.values())
         self.teams = frozenset(self.team_to_turn_length.keys())
         self.curr_trainable_policies = {list(self.teams)[0]}
-        # Start with red being the one whose policy's being trained
 
-        self.burn_in_iters = 4
+        self.burn_in_iters = 0
         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
 
     def on_train_result(self, *, trainer, result, **kwargs):
@@ -243,7 +281,6 @@ def AP_alternating_pol_train_PROTOTYPE(map_size=25, *args):
             "conv_filters": convs[env_name] if conv_filters is None else conv_filters
         },
         "env_config": env_config,
-        "rollout_fragment_length": 40,
         "create_env_on_driver": True, # potentially disable this?
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
@@ -299,7 +336,6 @@ def BF_alternating_pol_training_PROTOTYPE(map_size=50, *args):
             "conv_filters": convs[env_name]
         },
         "env_config": env_config,
-        "rollout_fragment_length": 40,
         "create_env_on_driver": True, # potentially disable this?
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
