@@ -479,6 +479,24 @@ def all_experiment_1():
     }
     ray_train_generic(**kwargs, end_render=True)
 
+    # Shared-shared Asymmetric TD
+    env_config = {'map_size': 30}
+    # tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
+    team_data = [TeamPolicyConfig('tiger'), TeamPolicyConfig('deer')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
+    kwargs = {
+        'env_name': 'tiger-deer',
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+    ray_train_generic(**kwargs)
+
+    # Shared-shared Symmetric CA
     ray_CA_generalized()
 
 
