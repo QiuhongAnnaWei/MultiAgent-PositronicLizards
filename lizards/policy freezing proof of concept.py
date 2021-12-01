@@ -103,6 +103,43 @@ class APTCallback_BF(DefaultCallbacks):
                 worker.set_policies_to_train(self.curr_trainable_policies)
             
             trainer.workers.foreach_worker(_set)
+
+# APTCallback stands for: Alternating Policy Training Callback
+class APTCallback_BF2(DefaultCallbacks):
+    # We'll make this cleaner by using the mixin once we're sure that this works
+
+    def __init__(self, team_to_turn_length: dict):
+        super().__init__()
+
+        self.team_to_turn_length = team_to_turn_length
+        self.turn_lengths_sum = sum(self.team_to_turn_length.values())
+        self.teams = self.team_to_turn_length.keys()
+        self.curr_trainable_policies = {self.teams[0]}
+        # Start with red being the one whose policy's being trained
+
+        self.burn_in_iters = 4
+        # How many iterations to train normally for, before starting alternating policy training/freezing regimen
+
+    def on_train_result(self, *, trainer, result, **kwargs):
+        """ will be called at the end of Trainable.train()"""
+
+        curr_iter = trainer.iteration
+        print(f"curr_iter is {curr_iter}")
+        if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.turn_lengths_sum) in self.team_to_turn_length.values():
+            team_to_freeze = self.curr_trainable_policies # for debug
+
+            self.curr_trainable_policies = self.teams - self.curr_trainable_policies # swaps teams
+
+            team_to_train = self.curr_trainable_policies # for debug
+
+            print(f"Iter {curr_iter}: Freezing {team_to_freeze} and training {team_to_train}")
+
+            def _set(worker):
+                print(f"_set has been called; self.curr_trainable_policies are {self.curr_trainable_policies}")
+                # Note: `_set` must be enclosed in `on_train_result`!
+                worker.set_policies_to_train(self.curr_trainable_policies)
+
+            trainer.workers.foreach_worker(_set)
     
 
 class APTCallback_AP(DefaultCallbacks):
@@ -240,7 +277,8 @@ def BF_alternating_pol_training_PROTOTYPE(map_size=50, *args):
     
     ray_trainer_config = {
 
-        "callbacks": APTCallback_BF, # IMPT
+        # "callbacks": APTCallback_BF, # IMPT # Testing new callback below (Eli):
+        "callbacks": APTCallback_BF2({"red": 1, "blue": 30}),
 
         "multiagent": {
             "policies": {"red": (None, obs_space, action_space, dict()),
