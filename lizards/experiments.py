@@ -458,7 +458,7 @@ def ray_experiment_BA_training_arch(*args):
     new_arch = [[7, [5, 5], 2], [21, [3, 3], 2], [21, [4,4], 1]] # (13,13,5) -> (7,5,5) -> (21,3,3) -> (21,1,1)
     old_arch = [[21, 13, 1]] 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
-    print(f"\n(from ray_train_generic) `log_dir` has been set to {log_dir}")
+    print(f"\n(from ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir}")
     if True:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = new_arch
