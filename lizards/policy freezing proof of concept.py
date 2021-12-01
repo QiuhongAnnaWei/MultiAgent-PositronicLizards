@@ -135,7 +135,9 @@ def train_for_pol_wt_freezing(trainer, timestamp=get_timestamp(), num_iters=20, 
 
         print(f"batch {i + 1}: took {time.time() - start} seconds")
 
-        get_and_log_wts(trainer)
+        get_and_log_wts(trainer) 
+        # could use a callback instead for this tho, e.g. https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
+        # but for now I like the idea of using a causal pathway distinct from tt which we are manipulating
 
         # TO DO: Fix log interval code
         # if (i + 1) % log_intervals == 0:
