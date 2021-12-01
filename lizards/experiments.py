@@ -447,7 +447,7 @@ def ray_experiment_BF_training_arch(*args):
         print(f"{key}: {rewards[key]}")
 
 
-def ray_experiment_BA_training_arch(*args):
+def ray_experiment_BA_training_arch(*args, evaluate=True):
     env_name = 'battle'
     env_config = {'map_size': 30}
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
@@ -457,18 +457,21 @@ def ray_experiment_BA_training_arch(*args):
     gpu = False
     new_arch = [[7, [5, 5], 2], [21, [3, 3], 2], [21, [4,4], 1]] # (13,13,5) -> (7,5,5) -> (21,3,3) -> (21,1,1)
     old_arch = [[21, 13, 1]] 
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
-    print(f"\n### (ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir} ###\n")
     if True:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = new_arch
         trainer = ppo.PPOTrainer(config=trainer_config)
-        checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir,
-                    render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_iter=10000)
-        # checkpoint ='logs/ccv/PPO_battle_newarch_ms19/checkpoint_000080/checkpoint-80'
+        if evaluate:
+            # checkpoint ='logs/ccv/PPO_battle_newarch_ms19/checkpoint_000100/checkpoint-100'
+            checkpoint = 'logs/pretrained/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100'
+            render_from_checkpoint(checkpoint, trainer, env_directory[env_name], env_config, policy_fn, max_iter=10000, savefile=True) 
+        else:
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
+            print(f"\n### (ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir} ###\n")
+            checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir,
+                        render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_iter=10000)
     else:        
         pass
-    # render_from_checkpoint(checkpoint, trainer, env_directory[env_name], env_config, policy_fn, max_iter=10000, savefile=True) 
     rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
     print("\n### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS ###")
     for key in rewards:
