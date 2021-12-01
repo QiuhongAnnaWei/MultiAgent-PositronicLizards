@@ -113,6 +113,7 @@ def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=
 
 
 
+# TO DO: Incorporate this into tune.run
 def train_for_pol_wt_freezing(trainer, timestamp=get_timestamp(), num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
 
     true_start = time.time()
