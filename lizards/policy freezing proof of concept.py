@@ -22,6 +22,7 @@ from ray.tune import CLIReporter, register_env
 # https://github.com/ray-project/ray/blob/fd13bac9b3fc2e7142065c759f2c9fc1c753e912/rllib/examples/self_play_with_open_spiel.py
 
 """ TO DO WED Dec 1
+0. Write a callback for recording / logging the policy weihgts, so tt we can use tune.run instead of our manual training loop
 1. Test training loop with APTCallback_BA_simplest_for_quicktest to check if policy freezing stuff has been recorded properly
 2. Run each exp for couple of iters and use new policy freezing logging to check if freezing happening as desired.
 3. Add checkpoint saving and evaluation (see experiments.py for how)
@@ -113,7 +114,7 @@ def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=
 
 
 
-# TO DO: Incorporate this into tune.run
+# TO DO: Incorporate this into tune.run 
 def train_for_pol_wt_freezing(trainer, timestamp=get_timestamp(), num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
 
     true_start = time.time()
