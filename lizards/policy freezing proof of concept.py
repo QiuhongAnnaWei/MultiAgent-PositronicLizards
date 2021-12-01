@@ -105,7 +105,7 @@ class APTCallback_BF(DefaultCallbacks):
             trainer.workers.foreach_worker(_set)
 
 # APTCallback stands for: Alternating Policy Training Callback
-class APTCallback_BF2(DefaultCallbacks):
+class APTCallback_BF_to_wrap(DefaultCallbacks):
     # We'll make this cleaner by using the mixin once we're sure that this works
 
     def __init__(self, team_to_turn_length: dict):
@@ -113,8 +113,8 @@ class APTCallback_BF2(DefaultCallbacks):
 
         self.team_to_turn_length = team_to_turn_length
         self.turn_lengths_sum = sum(self.team_to_turn_length.values())
-        self.teams = self.team_to_turn_length.keys()
-        self.curr_trainable_policies = {self.teams[0]}
+        self.teams = frozenset(self.team_to_turn_length.keys())
+        self.curr_trainable_policies = {list(self.teams)[0]}
         # Start with red being the one whose policy's being trained
 
         self.burn_in_iters = 4
@@ -140,7 +140,6 @@ class APTCallback_BF2(DefaultCallbacks):
                 worker.set_policies_to_train(self.curr_trainable_policies)
 
             trainer.workers.foreach_worker(_set)
-    
 
 class APTCallback_AP(DefaultCallbacks):
 
@@ -275,10 +274,14 @@ def BF_alternating_pol_training_PROTOTYPE(map_size=50, *args):
     def pol_mapping_fn(agent_id, episode, worker, **kwargs):
         return "red" if agent_id.startswith("red") else "blue"
     
+    class APTCallback_BF_test_1(APTCallback_BF_to_wrap):
+        def __init__(self):
+            super().__init__({"red": 1, "blue": 30})
+
     ray_trainer_config = {
 
         # "callbacks": APTCallback_BF, # IMPT # Testing new callback below (Eli):
-        "callbacks": APTCallback_BF2({"red": 1, "blue": 30}),
+        "callbacks": APTCallback_BF_test_1,
 
         "multiagent": {
             "policies": {"red": (None, obs_space, action_space, dict()),
