@@ -157,15 +157,15 @@ def get_timestamp():
 
 def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
 
-    def get_and_log_wts(trainer):
-        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
-        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
-        policy_weights.append(copied_policy_wts_from_local_worker)
-
     true_start = time.time()
 
     results_dicts = []
     policy_weights_for_iters = []
+
+    def get_and_log_wts(trainer):
+        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
+        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
+        policy_weights_for_iters.append(copied_policy_wts_from_local_worker)
 
     for i in range(num_iters):
         print(f"Starting training on iter {i + 1}...")
