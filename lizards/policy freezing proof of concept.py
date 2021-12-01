@@ -1,5 +1,6 @@
 from experiments import *
 from main_utils import *
+from policy_freezing_helper import *
 import pathlib
 
 import ray
@@ -10,7 +11,7 @@ from ray.rllib.agents.ppo import PPOTrainer
 # from ray.rllib.policy.policy import PolicySpec
 from ray.tune import CLIReporter, register_env
 import pytz
-import datetime
+from datetime import datetime
 from copy import deepcopy
 import pandas as pd
 from typing import List, Dict
@@ -52,23 +53,6 @@ def list_map(*args): return list(map(*args))
 def tup_map(*args): return tuple(map(*args))
 def np_itermap(*args, dtype=bool): return np.fromiter(map(*args), dtype=dtype)
 
-
-def get_timestamp():
-    tz = pytz.timezone('US/Eastern')
-    short_timestamp = datetime.now(tz).strftime("%d.%m_%H.%M")
-    return short_timestamp
-
-
-def pairwise_eq_chk(team_name, wt_dict1, wt_dict2):
-    """
-    Returns True iff wts for team_name in both dicts are the same  
-    Assumes keys are the same for both dicts; see examples below 
-    """
-    d1 = wt_dict1[team_name]
-    d2 = wt_dict2[team_name]
-
-    return np.array([True if np.array_equal(d1[key], d2[key]) else False for key in d1]).all()
-
 test_dict_blue_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])}}
 test_dict_blue_123_copy = deepcopy(test_dict_blue_123)
 test_dict_blue_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])}}
@@ -76,16 +60,6 @@ test_dict_blue_321_copy = deepcopy(test_dict_blue_321)
 
 assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_123_copy) == True
 assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_321) == False
-
-
-def check_eq_policy_wts_across_iters(pol_wts_across_iters: List[Dict[str, Dict[str, npt.ArrayLike]]], team_names: List[str]):
-    """ 
-    Given a list of policy weights across iterations, checks if the pol wts at each iteration is equal to the previous one
-    pol_wts_across_iters's first value must be the initial random wts for each team; i.e., the wts at iteration 0 
-    So at idx i of pol_wts_across_iters, we'll have the pol weights __at the end of__ the i-th iteration (where the idxing is 0-based)
-    """
-    return {team: tup_map(partial(pairwise_eq_chk, team), pol_wts_across_iters, pol_wts_across_iters[1:]) for team in team_names}
-
 
 test_dict_br_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])},
                     "red": {'red/conv_value_1/bias': np.array([4, 9])}}
@@ -99,16 +73,13 @@ test_pw_eq_chk_dict = {'blue': (True, False, True), 'red': (True, True, True)}
 assert check_eq_policy_wts_across_iters(test_pw_across_iters, ["blue", "red"]) == test_pw_eq_chk_dict
 
 
-def get_changepoints(eq_chk_dict: dict):
-    # False here means: the pol wts at that iteration not equal to those at previous iter
-    return {team: np.nonzero(np.array(eq_chk_dict[team])==False) for team in eq_chk_dict}
 
 # get_changepoints(test_pw_eq_chk_dict) 
 # {'blue': (array([1]),), 'red': (array([], dtype=int64),)}
 
 
 
-def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=Path("logs/pol_freezing")):
+def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, team_names, log_dir=Path("./logs/pol_freezing")):
     #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") TODO: timestamp is not defined
     results_save_path = log_dir.joinpath(f"{get_timestamp()}_results_stats.csv")
     pd.DataFrame(results_dicts).to_csv(results_save_path)
@@ -117,8 +88,10 @@ def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=
 
     # TO DO: 
     # 1. Save raw pol wts
+    policy_save_path = log_dir.joinpath(f"{get_timestamp()}_policy_stats.csv")
+    pd.DataFrame(policy_weights_for_iters).to_csv(policy_save_path)
     # 2. Save and print changepoints
-    changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters))
+    changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, team_names))
 
     for team in changepoints:
         print(f"changepoints for team {team} are:\n {changepoints}")
@@ -126,7 +99,7 @@ def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=
 
 
 # TO DO: Incorporate this into tune.run 
-def train_for_pol_wt_freezing(trainer, timestamp=get_timestamp(), num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
+def train_for_pol_wt_freezing(trainer: Trainable, timestamp=get_timestamp(), num_iters=20, log_intervals=10, log_dir=Path("./logs/pol_freezing")):
 
     true_start = time.time()
 
@@ -158,8 +131,10 @@ def train_for_pol_wt_freezing(trainer, timestamp=get_timestamp(), num_iters=20, 
         #     print("checkpoint saved at", checkpoint)
 
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
+
+    team_names = list(trainer.get_config()["multiagent"]["policies"].keys())
     
-    save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir)
+    save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters,team_names, log_dir)
     
     return results_dicts, policy_weights_for_iters
 
@@ -226,6 +201,8 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
         (Iteration 0 is the state when *no* training has been done.)"""
 
         curr_iter = trainer.iteration
+        
+
         print(f"Just finished train iter {curr_iter}")
         if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.turn_lengths_sum) in self.team_to_turn_length.values():
             team_to_freeze = self.curr_trainable_policies # for debug
@@ -302,7 +279,7 @@ def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
     # started Wed Dec 1
     env_name = "battle"
 
-    training_setup = {"num_iters": 16,
+    training_setup = {"num_iters": 70,
                      # "log_intervals": 4, # TO DO: might need to set this properly
                      "log_dir": 'logs/BA_testing'}
 
@@ -314,6 +291,7 @@ def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
         def __init__(self):
             super().__init__({"red": 1, "blue": 30})
 
+
     ray_trainer_config = {
 
         "callbacks": APTCallback_BA_test_1_30, # IMPT 
@@ -321,9 +299,9 @@ def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
         "multiagent": {
             "policies": {"red": (None, obs_space, action_space, dict()),
                          "blue": (None, obs_space, action_space, dict())},
-            "policy_mapping_fn": BA_pol_mapping_fn
+            "policy_mapping_fn": BA_pol_mapping_fn,
+            "policies_to_train": ["red"], # Red, and __only__ red, will be trained on first iter
         },
-        "policies_to_train": ["red"], # Red, and __only__ red, will be trained on first iter
         # TO DO: try to come up with a better way to make clear which team will be trained on first iter in callback and here
 
 
@@ -347,7 +325,8 @@ if __name__ == "__main__":
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
 
-    BF_alternating_pol_training_PROTOTYPE()
+    #BF_alternating_pol_training_PROTOTYPE()
+    BA_apt_1_30_PROTOTYPE()
 
     # AP_alternating_pol_train_PROTOTYPE()
 
