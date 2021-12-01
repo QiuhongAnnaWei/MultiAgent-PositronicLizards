@@ -157,7 +157,6 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     convs = {"adversarial-pursuit": [[13, 10, 1]],
              "battle": [[21, 13, 1]],
              "battlefield": [[21, 13, 1]],
-            #  "battlefield": [[7, [3, 3], 1], [21, [3, 3], 2], [21, [7,7], 1]], # 7(13x13)-3(7x7)-1(1x1)filtes
              "tiger-deer": [[9, 9, 1]],
              "combined-arms": [[25, 13, 1]]}
     conv_activation = "relu" #  "tanh", "relu", "swish" (or "silu")
@@ -187,8 +186,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         trainer_config["num_gpus_per_worker"] = 0.5
     else:  # For CPU training only:
         trainer_config["num_gpus"] = 0
-        trainer_config["num_workers"] = 2
-        trainer_config["num_cpus_per_worker"] = 10
+        # trainer_config["num_workers"] = 2
+        # trainer_config["num_cpus_per_worker"] = 10
 
     trainer_config.update(kwargs)
     return trainer_config
@@ -234,9 +233,9 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
     if checkpoint:
         trainer.restore(checkpoint)
     else: # for path
-        checkpoint = "logs/render_from_checkpoint/visualization"
+        checkpoint = "logs/ccv/visualization"
         if not os.path.exists(os.path.split(checkpoint)[0]): os.makedirs(os.path.split(checkpoint)[0])
-        
+
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
