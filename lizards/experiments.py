@@ -399,6 +399,7 @@ def ray_CA_generalized(map_size=16):
 def ray_experiment_BF_training_arch(*args):
     env_name = 'battlefield'
     env_config = {'map_size': 55}
+    print(f"\nCONFIG: env_config = {env_config}")
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     train_iters = 50
@@ -412,6 +413,7 @@ def ray_experiment_BF_training_arch(*args):
     if False:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = new_arch
+        print(f"\nCONFIG: model-conv_filters = {trainer_config['model']['conv_filters']}")
         trainer = ppo.PPOTrainer(config=trainer_config)
         checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir)
     else:        
@@ -447,27 +449,32 @@ def ray_experiment_BF_training_arch(*args):
         print(f"{key}: {rewards[key]}")
 
 
-def ray_experiment_BA_training_arch(*args, evaluate=True):
+def ray_experiment_BA_training_arch(*args, evaluate=False):
     env_name = 'battle'
-    env_config = {'map_size': 30}
+    env_config = {'map_size': 19}
+    print(f"\nCONFIG: env_config = {env_config}")
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
-    train_iters = 2
-    log_intervals = 1
+    train_iters = 100
+    log_intervals = 20
     gpu = False
     new_arch = [[7, [5, 5], 2], [21, [3, 3], 2], [21, [4,4], 1]] # (13,13,5) -> (7,5,5) -> (21,3,3) -> (21,1,1)
     old_arch = [[21, 13, 1]] 
     if True:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = new_arch
+        print(f"\nCONFIG: model-conv_filters = {trainer_config['model']['conv_filters']}")
         trainer = ppo.PPOTrainer(config=trainer_config)
         if evaluate:
             # checkpoint ='logs/ccv/PPO_battle_newarch_ms19/checkpoint_000100/checkpoint-100'
             checkpoint = 'logs/pretrained/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100'
             render_from_checkpoint(checkpoint, trainer, env_directory[env_name], env_config, policy_fn, max_iter=10000, savefile=True) 
         else:
-            log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
+            # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
+            log_dir = 'logs/pretrained/PPO_battle_newarch_ca3ee'
             print(f"\n### (ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir} ###\n")
+            checkpoint = 'logs/pretrained/PPO_battle_newarch_ca3ee/checkpoint_000200/checkpoint-200'
+            trainer.restore(checkpoint)
             checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir,
                         render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_iter=10000)
     else:        
