@@ -22,6 +22,7 @@ from ray.tune import CLIReporter, register_env
 # https://github.com/ray-project/ray/blob/fd13bac9b3fc2e7142065c759f2c9fc1c753e912/rllib/examples/self_play_with_open_spiel.py
 
 
+# TO DO NOTE: We should try to switch over to the new training conv stuff that Qiuhong / Anna has made before actually training the experiments
 convs = {"adversarial-pursuit": [[13, 10, 1]],
          "battle": [[21, 13, 1]],
          "battlefield": [[21, 13, 1]],
