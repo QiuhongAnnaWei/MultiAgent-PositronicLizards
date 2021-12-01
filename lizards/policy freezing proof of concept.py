@@ -72,6 +72,7 @@ assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_321) == False
 
 def check_eq_policy_wts_across_iters(pol_wts_across_iters: List[Dict[str, Dict[str, npt.ArrayLike]]], team_names: List[str]):
     """ 
+    Given a list of policy weights across iterations, checks if the pol wts at each iteration is equal to the previous one
     pol_wts_across_iters's first value must be the initial random wts for each team; i.e., the wts at iteration 0 
     So at idx i of pol_wts_across_iters, we'll have the pol weights __at the end of__ the i-th iteration (where the idxing is 0-based)
     """
@@ -88,6 +89,7 @@ test_dict_br_321_copy = deepcopy(test_dict_br_321)
 test_pw_across_iters = [test_dict_br_123, test_dict_br_123_copy, test_dict_br_321, test_dict_br_321_copy]
 test_pw_eq_chk_dict = {'blue': (True, False, True), 'red': (True, True, True)}
 assert check_eq_policy_wts_across_iters(test_pw_across_iters, ["blue", "red"]) == test_pw_eq_chk_dict
+
 
 def get_changepoints(eq_chk_dict: dict):
     # False here means: the pol wts at that iteration not equal to those at previous iter
@@ -292,7 +294,7 @@ def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
     env_name = "battle"
 
     training_setup = {"num_iters": 16,
-                     "log_intervals": 4,
+                     # "log_intervals": 4, # TO DO: might need to set this properly
                      "log_dir": 'logs/BA_testing'}
 
     env_fn = env_directory[env_name]
