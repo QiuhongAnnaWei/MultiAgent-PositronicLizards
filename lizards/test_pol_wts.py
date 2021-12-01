@@ -2,8 +2,15 @@ from experiments import *
 from main_utils import *
 
 from copy import deepcopy
-import pathlib
+from pathlib import Path
 import pandas as pd
+from functools import reduce, partial
+from itertools import starmap
+import time
+import pytz
+from datetime import datetime
+from typing import Sequence, Dict, Optional, Tuple, List
+import numpy.typing as npt
 
 import ray
 from ray import tune
@@ -13,16 +20,13 @@ from ray.rllib.agents.ppo import PPOTrainer
 # from ray.rllib.policy.policy import PolicySpec
 from ray.tune import CLIReporter, register_env
 
-import time
-
-
-
 
 # Stepping thru to get the trainer obj 
 
-# See if I can get the num_worker settings too
 
-
+def list_map(*args): return list(map(*args))
+def tup_map(*args): return tuple(map(*args))
+def np_itermap(*args, dtype=bool): return np.fromiter(map(*args), dtype=dtype)
 
 # This is for env BATTLE, not BF
 class APTCallback_BA_simplest(DefaultCallbacks):
@@ -144,13 +148,24 @@ result1 = trainer.train()
 # trainer.config["num_workers"]
 
 
+def get_timestamp():
+    tz = pytz.timezone('US/Eastern')
+    short_timestamp = datetime.now(tz).strftime("%d.%m_%H.%M")
+    return short_timestamp
 
-def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, log_dir=None):
+
+
+def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
+
+    def get_and_log_wts(trainer):
+        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
+        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
+        policy_weights.append(copied_policy_wts_from_local_worker)
+
     true_start = time.time()
 
     results_dicts = []
     policy_weights_for_iters = []
-
 
     for i in range(num_iters):
         print(f"Starting training on iter {i + 1}...")
@@ -159,39 +174,69 @@ def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, l
         result = trainer.train()
         results_dicts.append(result)
 
-        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
-        policy_weights.append(copied_policy_wts_from_local_worker)
-
-
         print(f"batch {i + 1}: took {time.time() - start} seconds")
+
+        get_and_log_wts(trainer)
 
         # if (i + 1) % log_intervals == 0:
         #     checkpoint = trainer.save(log_dir)
         #     print("checkpoint saved at", checkpoint)
 
-    # TO ADD: save results_dicts, e.g. as csv
+    timestamp = get_timestamp()
+
+    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
+    pd.DataFrame(results_dicts).to_csv(results_save_path)
+
+    print(f"results_dicts saved to {results_save_path}")
 
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
 
     return results_dicts, policy_weights_for_iters
 
 
-def pairwise_chk(wt_dict1, wt_dict2, team_name):
-    """ assumes keys are the same for both dicts """
+def pairwise_eq_chk(team_name, wt_dict1, wt_dict2):
+    """
+    Returns True iff wts for team_name in both dicts are the same  
+    Assumes keys are the same for both dicts; see examples below 
+    """
     d1 = wt_dict1[team_name]
     d2 = wt_dict2[team_name]
 
     return np.array([True if np.array_equal(d1[key], d2[key]) else False for key in d1]).all()
 
-assert pairwise_chk(dt1, dt2, "blue") == False
-assert pairwise_chk(dt1, dt2, "red") == True
+test_dict_blue_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])}}
+test_dict_blue_123_copy = deepcopy(test_dict_blue_123)
+test_dict_blue_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])}}
+test_dict_blue_321_copy = deepcopy(test_dict_blue_321)
 
-assert pairwise_chk(dt2, dt3, "red") == False
-assert pairwise_chk(dt2, dt3, "blue") == True
-
-dt3 = wts_from_trainer_getwts[3]
+assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_123_copy) == True
+assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_321) == False
 
 
+test_dict_br_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])},
+                    "red": {'red/conv_value_1/bias': np.array([4, 9])}}
+test_dict_br_123_copy = deepcopy(test_dict_br_123)
+test_dict_br_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])},
+                    "red": {'red/conv_value_1/bias': np.array([4, 9])}}
+test_dict_br_321_copy = deepcopy(test_dict_br_321)
+
+def check_eq_policy_wts_across_iters(pol_wts_across_iters: List[Dict[str, Dict[str, npt.ArrayLike]]], team_names: List[str]):
+    """ 
+    pol_wts_across_iters's first value must be the initial random wts for each team; i.e., the wts at iteration 0 
+    So at idx i of pol_wts_across_iters, we'll have the pol weights __at the end of__ the i-th iteration (where the idxing is 0-based)
+    """
+    return {team: tup_map(partial(pairwise_eq_chk, team), pol_wts_across_iters, pol_wts_across_iters[1:]) for team in team_names}
+
+test_pw_across_iters = [test_dict_br_123, test_dict_br_123_copy, test_dict_br_321, test_dict_br_321_copy]
+test_pw_eq_chk_dict = {'blue': (True, False, True), 'red': (True, True, True)}
+assert check_eq_policy_wts_across_iters(test_pw_across_iters, ["blue", "red"]) == test_pw_eq_chk_dict
+
+def get_changepoints(eq_chk_dict: dict):
+    # False here means: the pol wts at that iteration not equal to those at previous iter
+    return {team: np.nonzero(np.array(eq_chk_dict[team])==False) for team in eq_chk_dict}
+
+get_changepoints(test_pw_eq_chk_dict) 
+# {'blue': (array([1]),), 'red': (array([], dtype=int64),)}
 
 if __name__ == "__main__":
     for env_name, env in env_directory.items():
