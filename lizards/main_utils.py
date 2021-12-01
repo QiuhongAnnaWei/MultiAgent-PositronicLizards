@@ -186,20 +186,22 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         trainer_config["num_gpus_per_worker"] = 0.5
     else:  # For CPU training only:
         trainer_config["num_gpus"] = 0
-        # trainer_config["num_workers"] = 2
-        # trainer_config["num_cpus_per_worker"] = 10
+        trainer_config["num_workers"] = 2
+        trainer_config["num_cpus_per_worker"] = 16
 
     trainer_config.update(kwargs)
     return trainer_config
 
 
-def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
+def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None, 
+        render=False, env=None, env_config=None, policy_fn=None, max_iter=10000):
     """
     Trains a Ray Trainer and saves checkpoints
     :param trainer: a Ray Trainer
     :param num_iters: (optional) number of training iterations
     :param log_intervals: (optional) saves a checkpoint for every 'log_intervals' training iterations
     :param log_dir: (optional) file path to save checkpoints
+    :param render: (optional) for rendering after saving checkpoint. If True, env, env_config, policy_fn must be set.
     :return: file path of the final checkpoint
     """
     checkpoint = None
@@ -213,6 +215,8 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
         if (i + 1) % log_intervals == 0:
             checkpoint = trainer.save(log_dir)
             print("checkpoint saved at", checkpoint)
+            if render and (env is not None) and (env_config is not None) and (policy_fn is not None):
+                render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_iter, savefile=True)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
 
     trainer.stop()
