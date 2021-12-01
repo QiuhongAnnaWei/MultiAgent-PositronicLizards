@@ -43,17 +43,88 @@ def list_map(*args): return list(map(*args))
 def tup_map(*args): return tuple(map(*args))
 def np_itermap(*args, dtype=bool): return np.fromiter(map(*args), dtype=dtype)
 
-def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
 
-    def get_and_log_wts(trainer):
-        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
-        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
-        policy_weights.append(copied_policy_wts_from_local_worker)
+def get_timestamp():
+    tz = pytz.timezone('US/Eastern')
+    short_timestamp = datetime.now(tz).strftime("%d.%m_%H.%M")
+    return short_timestamp
+
+
+def pairwise_eq_chk(team_name, wt_dict1, wt_dict2):
+    """
+    Returns True iff wts for team_name in both dicts are the same  
+    Assumes keys are the same for both dicts; see examples below 
+    """
+    d1 = wt_dict1[team_name]
+    d2 = wt_dict2[team_name]
+
+    return np.array([True if np.array_equal(d1[key], d2[key]) else False for key in d1]).all()
+
+test_dict_blue_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])}}
+test_dict_blue_123_copy = deepcopy(test_dict_blue_123)
+test_dict_blue_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])}}
+test_dict_blue_321_copy = deepcopy(test_dict_blue_321)
+
+assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_123_copy) == True
+assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_321) == False
+
+
+def check_eq_policy_wts_across_iters(pol_wts_across_iters: List[Dict[str, Dict[str, npt.ArrayLike]]], team_names: List[str]):
+    """ 
+    pol_wts_across_iters's first value must be the initial random wts for each team; i.e., the wts at iteration 0 
+    So at idx i of pol_wts_across_iters, we'll have the pol weights __at the end of__ the i-th iteration (where the idxing is 0-based)
+    """
+    return {team: tup_map(partial(pairwise_eq_chk, team), pol_wts_across_iters, pol_wts_across_iters[1:]) for team in team_names}
+
+
+test_dict_br_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])},
+                    "red": {'red/conv_value_1/bias': np.array([4, 9])}}
+test_dict_br_123_copy = deepcopy(test_dict_br_123)
+test_dict_br_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])},
+                    "red": {'red/conv_value_1/bias': np.array([4, 9])}}
+test_dict_br_321_copy = deepcopy(test_dict_br_321)
+
+test_pw_across_iters = [test_dict_br_123, test_dict_br_123_copy, test_dict_br_321, test_dict_br_321_copy]
+test_pw_eq_chk_dict = {'blue': (True, False, True), 'red': (True, True, True)}
+assert check_eq_policy_wts_across_iters(test_pw_across_iters, ["blue", "red"]) == test_pw_eq_chk_dict
+
+def get_changepoints(eq_chk_dict: dict):
+    # False here means: the pol wts at that iteration not equal to those at previous iter
+    return {team: np.nonzero(np.array(eq_chk_dict[team])==False) for team in eq_chk_dict}
+
+# get_changepoints(test_pw_eq_chk_dict) 
+# {'blue': (array([1]),), 'red': (array([], dtype=int64),)}
+
+
+
+def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=Path("logs/pol_freezing")):
+    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
+    pd.DataFrame(results_dicts).to_csv(results_save_path)
+
+    print(f"results_dicts saved to {results_save_path}")
+
+    # TO DO: 
+    # 1. Save raw pol wts
+    # 2. Save and print changepoints
+    changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters))
+
+    for team in changepoints:
+        print(f"changepoints for team {team} are:\n {changepoints}")
+
+
+
+def train_for_pol_wt_freezing(trainer, timestamp=get_timestamp(), num_iters=20, log_intervals=10, log_dir=Path("logs/pol_freezing")):
 
     true_start = time.time()
 
     results_dicts = []
     policy_weights_for_iters = []
+
+    def get_and_log_wts(trainer):
+        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
+        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
+        policy_weights_for_iters.append(copied_policy_wts_from_local_worker)
+
 
     for i in range(num_iters):
         print(f"Starting training on iter {i + 1}...")
@@ -66,19 +137,15 @@ def train_for_testing_pol_wt_freezing(trainer, num_iters=20, log_intervals=10, l
 
         get_and_log_wts(trainer)
 
+        # TO DO: Fix log interval code
         # if (i + 1) % log_intervals == 0:
         #     checkpoint = trainer.save(log_dir)
         #     print("checkpoint saved at", checkpoint)
 
-    timestamp = get_timestamp()
-
-    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
-    pd.DataFrame(results_dicts).to_csv(results_save_path)
-
-    print(f"results_dicts saved to {results_save_path}")
-
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
-
+    
+    save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir)
+    
     return results_dicts, policy_weights_for_iters
 
 
@@ -87,7 +154,6 @@ Assumptions:
 * Code below was designed for 2-team environments
 * names of policies == prefixes of teams (i.e., either "predator" or "prey")
 """
-
 
 class APTCallback_BA_simplest_for_quicktest(DefaultCallbacks): 
     def __init__(self):
@@ -217,7 +283,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
 def BA_pol_mapping_fn(agent_id, episode, worker, **kwargs):
     return "red" if agent_id.startswith("red") else "blue"
 
-def BA_apt_1_30_PROTOTYPE(map_size=19, *args):
+def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
     # started Wed Dec 1
     env_name = "battle"
 
@@ -236,14 +302,16 @@ def BA_apt_1_30_PROTOTYPE(map_size=19, *args):
     ray_trainer_config = {
 
         "callbacks": APTCallback_BA_test_1_30, # IMPT 
-        # "callbacks": APTCallback_BF_test_1,
 
         "multiagent": {
             "policies": {"red": (None, obs_space, action_space, dict()),
                          "blue": (None, obs_space, action_space, dict())},
             "policy_mapping_fn": BA_pol_mapping_fn
         },
-        
+        "policies_to_train": ["red"] # Red, and __only__ red, will be trained on first iter
+        # TO DO: try to come up with a better way to make clear which team will be trained on first iter in callback and here
+
+
         "env": env_name,
         "model": {
             "conv_filters": convs[env_name]
@@ -255,57 +323,9 @@ def BA_apt_1_30_PROTOTYPE(map_size=19, *args):
     }
 
     trainer = ppo.PPOTrainer(config=ray_trainer_config)
-    train_for_testing_pol_wt_freezing
+    train_for_pol_wt_freezing(trainer, timestamp=timestamp)
 
-
-
-
-def BF_alternating_pol_training_PROTOTYPE(map_size=50, *args):
-    # min map sz for BF is 46
-
-    training_setup = {"num_iters": 16,
-                     "log_intervals": 4,
-                     "log_dir": os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/BF_apt_PROTOTYPE')}
-
-    env_name = "battlefield"
-    env_fn = env_directory[env_name]
-    env_config = {'map_size': map_size} 
-
-    action_space, obs_space = env_spaces[env_name]["action_space"], env_spaces[env_name]["obs_space"]
-
-    def pol_mapping_fn(agent_id, episode, worker, **kwargs):
-        return "red" if agent_id.startswith("red") else "blue"
-    
-    class APTCallback_BF_test_1(APTCallback_BF_to_wrap):
-        def __init__(self):
-            super().__init__({"red": 1, "blue": 30})
-
-    ray_trainer_config = {
-
-        # "callbacks": APTCallback_BF, # IMPT # Testing new callback below (Eli):
-        "callbacks": APTCallback_BF_test_1,
-        "policies_to_train": ["red"], # start by training red for 1 iter
-
-        "multiagent": {
-            "policies": {"red": (None, obs_space, action_space, dict()),
-                         "blue": (None, obs_space, action_space, dict())},
-            "policy_mapping_fn": pol_mapping_fn
-        },
-        
-        "env": env_name,
-        "model": {
-            "conv_filters": convs[env_name]
-        },
-        "env_config": env_config,
-        "create_env_on_driver": True, # potentially disable this?
-        # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-    }
-
-    trainer = ppo.PPOTrainer(config=ray_trainer_config)
-
-    train_ray_trainer(trainer, **training_setup)
-
+    # TO DO: Add eval stuff!
 
 
 if __name__ == "__main__":
