@@ -9,7 +9,15 @@ from ray.rllib.agents.ppo import PPOTrainer
 # from ray.rllib.examples.policy.random_policy import RandomPolicy
 # from ray.rllib.policy.policy import PolicySpec
 from ray.tune import CLIReporter, register_env
-
+import pytz
+import datetime
+from copy import deepcopy
+import pandas as pd
+from typing import List, Dict
+import numpy.typing as npt
+import numpy as np
+from functools import partial
+from pathlib import Path
 
 # policy freezing and unfreezing stuff
 # ====================================
@@ -101,7 +109,8 @@ def get_changepoints(eq_chk_dict: dict):
 
 
 def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, log_dir=Path("logs/pol_freezing")):
-    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
+    #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") TODO: timestamp is not defined
+    results_save_path = log_dir.joinpath(f"{get_timestamp()}_results_stats.csv")
     pd.DataFrame(results_dicts).to_csv(results_save_path)
 
     print(f"results_dicts saved to {results_save_path}")
@@ -314,7 +323,7 @@ def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
                          "blue": (None, obs_space, action_space, dict())},
             "policy_mapping_fn": BA_pol_mapping_fn
         },
-        "policies_to_train": ["red"] # Red, and __only__ red, will be trained on first iter
+        "policies_to_train": ["red"], # Red, and __only__ red, will be trained on first iter
         # TO DO: try to come up with a better way to make clear which team will be trained on first iter in callback and here
 
 
