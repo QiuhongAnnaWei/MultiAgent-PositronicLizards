@@ -429,7 +429,7 @@ def parse_args():
 
 def all_experiment_1():
     # Self-play on Battle
-    env_config = {'map_size': 19}
+    env_config = {'map_size': 30}
     policy_dict = {'all': (None, env_spaces['battle']['obs_space'], env_spaces['battle']['action_space'], dict())}
     policy_fn = lambda *args, **kwargs: 'all'
     kwargs = {
@@ -445,9 +445,27 @@ def all_experiment_1():
 
     # Shared-split Symmetric battle
     env_name = 'battle'
-    env_config = {'map_size': 19}
+    env_config = {'map_size': 30}
     counts = get_num_agents(env_directory[env_name], env_config)
     team_data = [TeamPolicyConfig('red', method='split', count=counts['red']),
+                 TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+    ray_train_generic(**kwargs, end_render=True)
+
+    # Shared-shared Symmetric battle
+    env_name = 'battle'
+    env_config = {'map_size': 30}
+    team_data = [TeamPolicyConfig('red'),
                  TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
@@ -497,7 +515,7 @@ def all_experiment_1():
     ray_train_generic(**kwargs)
 
     # Shared-shared Symmetric CA
-    ray_CA_generalized()
+    # ray_CA_generalized()
 
 
 def main():
@@ -508,7 +526,8 @@ def main():
     # print(kwargs)
     # pettingzoo_peek(adversarial_pursuit_v3, {'map_size': 30})
     # pettingzoo_peek(tiger_deer_v3, {'map_size': 30})
-    all_experiment_1()
+    pettingzoo_peek(battle_v3, {'map_size': 30})
+    # all_experiment_1()
     # ray_TD_training_share_split_retooled()
     # ray_CA_generalized()
     # ray_BF_training_share_split_retooled()
