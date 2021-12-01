@@ -149,12 +149,13 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
 
-def ray_train_generic(*args, end_render=True, **kwargs):
+def ray_train_generic(*args, end_render=True, policy_log_str=None, **kwargs):
     trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
                                         kwargs['env_config'], gpu=kwargs['gpu'])
     trainer = ppo.PPOTrainer(config=trainer_config)
 
-    policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
+    if policy_log_str is None:
+        policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                            f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
     print(f"(from ray_train_generic) `log_dir` has been set to {log_dir}")
@@ -162,7 +163,7 @@ def ray_train_generic(*args, end_render=True, **kwargs):
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
     if end_render:
-        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000)
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=500)
     return checkpoint, trainer
 
 
@@ -384,7 +385,7 @@ def ray_CA_generalized(map_size=16):
                 'policy_fn': policy_fn,
                 'env_name': env_name,
                 'env_config': env_config,
-                'train_iters': 100,
+                'train_iters': 120,
                 'log_intervals': 20,
                 'gpu': True
                 }
@@ -426,20 +427,77 @@ def parse_args():
     return args
 
 
+def all_experiment_1():
+    # Self-play on Battle
+    env_config = {'map_size': 19}
+    policy_dict = {'all': (None, env_spaces['battle']['obs_space'], env_spaces['battle']['action_space'], dict())}
+    policy_fn = lambda *args, **kwargs: 'all'
+    kwargs = {
+        'env_name': 'battle',
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+    ray_train_generic(policy_log_str="self-play", **kwargs)
+
+    # Shared-split Symmetric battle
+    env_name = 'battle'
+    env_config = {'map_size': 19}
+    counts = get_num_agents(env_directory[env_name], env_config)
+    team_data = [TeamPolicyConfig('red', method='split', count=counts['red']),
+                 TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+    ray_train_generic(**kwargs, end_render=True)
+
+    # Shared-shared Asymmetric AP
+    env_name = 'adversarial-pursuit'
+    env_config = {'map_size': 40}
+    team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+    ray_train_generic(**kwargs, end_render=True)
+
+    ray_CA_generalized()
+
+
 def main():
     # kwargs = parse_args()
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
 
     # print(kwargs)
-    # pettingzoo_peek(battle_v3, {'map_size': 30})
+    # pettingzoo_peek(adversarial_pursuit_v3, {'map_size': 30})
+    # pettingzoo_peek(tiger_deer_v3, {'map_size': 30})
+    all_experiment_1()
     # ray_TD_training_share_split_retooled()
     # ray_CA_generalized()
     # ray_BF_training_share_split_retooled()
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()  # Run this after Local (2) finishes.
     # ray_BF_training_share_split_retooled()
-    ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
+    # ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()
     print("\n DONE")
