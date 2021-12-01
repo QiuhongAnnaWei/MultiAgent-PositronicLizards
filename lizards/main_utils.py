@@ -292,7 +292,7 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         diff_frame_list[0].save(save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
         import cv2
         save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.mp4')
-        print("\n# Saving video to:", save_path)
+        print("# Saving video to:", save_path, "\n")
         video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
         for i, image in enumerate(diff_frame_list):
             video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))

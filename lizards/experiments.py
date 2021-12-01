@@ -453,12 +453,12 @@ def ray_experiment_BA_training_arch(*args):
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     train_iters = 2
-    log_intervals = 2
+    log_intervals = 1
     gpu = False
     new_arch = [[7, [5, 5], 2], [21, [3, 3], 2], [21, [4,4], 1]] # (13,13,5) -> (7,5,5) -> (21,3,3) -> (21,1,1)
     old_arch = [[21, 13, 1]] 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
-    print(f"\n(from ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir}")
+    print(f"\n### (ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir}###\n")
     if True:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = new_arch
@@ -470,7 +470,7 @@ def ray_experiment_BA_training_arch(*args):
     
     # render_from_checkpoint(checkpoint, trainer, env_directory[env_name], env_config, policy_fn, max_iter=10000, savefile=True) 
     rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
-    print("\n ### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS ###")
+    print("\n### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS ###")
     for key in rewards:
         print(f"{key}: {rewards[key]}")
 
