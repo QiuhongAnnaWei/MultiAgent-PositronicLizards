@@ -319,6 +319,7 @@ def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.9
     env = ss.pad_action_space_v0(env)
 
     rewards = dict()
+    rewards_log = dict()
     gamma_mul = 1.0 * gamma
     first_agent = None
 
@@ -344,12 +345,14 @@ def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.9
 
             if agent_policy in rewards:
                 rewards[agent_policy] += reward * gamma_mul
+                rewards_log[agent_policy].append(rewards[agent_policy])
             else:
                 rewards[agent_policy] = reward * gamma_mul
+                rewards_log[agent_policy] = [reward * gamma_mul]
         env.step(action)
 
     env.close()
-    return rewards
+    return rewards, rewards_log
 
 
 def pettingzoo_peek(env, env_config):
