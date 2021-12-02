@@ -23,22 +23,22 @@ def get_timestamp():
     return short_timestamp
 
 
-def get_weights(trainer: Trainable, team: str):
+def get_weights(trainer: Trainable, policy_id: str):
     """
-    Gets the weights for a given team.
+    Gets the weights for a given policy_id.
     trainer: RLib trainer
-    team: team name for use in the dictionary
+    policy_id: policy_id for use in the dictionary
     """
-    return trainer.get_policy(team).get_weights()
+    return trainer.get_policy(policy_id).get_weights()
 
 
-def pairwise_eq_chk(team_name, wt_dict1, wt_dict2):
+def pairwise_eq_chk(policy_id, wt_dict1, wt_dict2):
     """
-    Returns True iff wts for team_name in both dicts are the same  
+    Returns True iff wts for policy_id in both dicts are the same  
     Assumes keys are the same for both dicts; see examples below 
     """
-    wt_dict1 = wt_dict1[team_name]
-    wt_dict2 = wt_dict2[team_name]
+    wt_dict1 = wt_dict1[policy_id]
+    wt_dict2 = wt_dict2[policy_id]
 
     bool_list_from_wtname_map = [True if np.array_equal(wt_dict1[wt_name], wt_dict2[wt_name]) else False for wt_name in wt_dict1]
 
@@ -72,14 +72,14 @@ def test_pairwise_eq_chk():
 test_pairwise_eq_chk()
 
 
-def check_eq_policy_wts_across_iters(pol_wts_across_iters: List[Dict[str, Dict[str, npt.ArrayLike]]], team_names: List[str]):
+def check_eq_policy_wts_across_iters(pol_wts_across_iters: List[Dict[str, Dict[str, npt.ArrayLike]]], policy_ids: List[str]):
     """ 
     Given a list of policy weights across iterations, checks if the pol wts at each iteration is equal to the previous one
     pol_wts_across_iters's first value must be the initial random wts for each team; i.e., the wts at iteration 0 
     So at idx i of pol_wts_across_iters, we'll have the pol weights from __the end of__ the i-th iteration (where the idxing is 0-based)
     """
-    tup_map(partial(pairwise_eq_chk, team), pol_wts_across_iters, pol_wts_across_iters[1:])
-    return {team:  for team in team_names}
+    chk_equality_across_iters = lambda policy_id: tup_map(partial(pairwise_eq_chk, policy_id), pol_wts_across_iters, pol_wts_across_iters[1:])
+    return {pol_id: chk_equality_across_iters(pol_id) for pol_id in policy_ids}
 
 def test_check_eq_policy_wts_across_iters():
     test_dict_br_123, test_dict_br_123_copy, test_dict_br_321, test_dict_br_321_copy = get_test_br_egs()
@@ -90,14 +90,14 @@ def test_check_eq_policy_wts_across_iters():
 test_check_eq_policy_wts_across_iters()
 
 
-def get_changepoints(eq_chk_dict: Dict[str, Iterable[bool]]):
+def get_changepoints(eq_chk_dict: Dict[str, Iterable]):
     """
-    Expects a dict with the structure: team_name [str] => Tuple of bools
+    Expects a dict with the structure: str (the policy id) => Tuple of bools
     False here means: the pol wts at that iteration not equal to those at previous iter
     """
-    changepts_vec_for_team = lambda team: np.flatnonzero(np.array(eq_chk_dict[team])==False) 
+    changepts_vec_for_policy_id = lambda policy_id: np.flatnonzero(np.array(eq_chk_dict[policy_id])==False) 
 
-    return {team: changepts_vec_for_team(team) for team in eq_chk_dict}
+    return {policy_id: changepts_vec_for_policy_id(policy_id) for policy_id in eq_chk_dict}
 
 def valarray_eq(dict1: Dict[str, npt.ArrayLike], dict2: Dict[str, npt.ArrayLike]):
     """ Given two dicts with same keys, check their associated np arrays for equality """
