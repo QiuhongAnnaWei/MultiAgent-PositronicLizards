@@ -2,7 +2,7 @@ import supersuit as ss
 from pettingzoo.utils.conversions import to_parallel
 import multiprocessing
 import time
-from stable_baselines3 import PPO
+# from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
@@ -150,7 +150,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     :param policy_dict: policy_dict from get_policy_config
     :param policy_fn: policy_fn from get_policy_config
     :param env_config: a dictionary of arguments for the environment (e.g. map_size=30)
-    :param conv_filters: [optional] a list of convolutional filters
+    :param conv_filters: [optional] a list of convolutional filters (out_channels, kernel, stride)
     :param kwargs: any other keyword arguments you want to put into the trainer config dict
     :return: a config dict for a Ray Trainer
     """
@@ -159,6 +159,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
              "battlefield": [[21, 13, 1]],
              "tiger-deer": [[9, 9, 1]],
              "combined-arms": [[25, 13, 1]]}
+    conv_activation = "relu" #  "tanh", "relu", "swish" (or "silu")
 
     trainer_config = {
         "env": env_name,
@@ -167,7 +168,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
             "policy_mapping_fn": policy_fn
         },
         "model": {
-            "conv_filters": convs[env_name] if conv_filters is None else conv_filters
+            "conv_filters": convs[env_name] if conv_filters is None else conv_filters,
+            "conv_activation": conv_activation
         },
         "env_config": env_config,
         "rollout_fragment_length": 500
@@ -184,18 +186,22 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         trainer_config["num_gpus_per_worker"] = 0.5
     else:  # For CPU training only:
         trainer_config["num_gpus"] = 0
+        trainer_config["num_workers"] = 2
+        trainer_config["num_cpus_per_worker"] = 16
 
     trainer_config.update(kwargs)
     return trainer_config
 
 
-def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
+def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None, 
+        render=False, env=None, env_config=None, policy_fn=None, max_iter=10000):
     """
     Trains a Ray Trainer and saves checkpoints
     :param trainer: a Ray Trainer
     :param num_iters: (optional) number of training iterations
     :param log_intervals: (optional) saves a checkpoint for every 'log_intervals' training iterations
     :param log_dir: (optional) file path to save checkpoints
+    :param render: (optional) for rendering after saving checkpoint. If True, env, env_config, policy_fn must be set.
     :return: file path of the final checkpoint
     """
     checkpoint = None
@@ -209,6 +215,8 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None):
         if (i + 1) % log_intervals == 0:
             checkpoint = trainer.save(log_dir)
             print("checkpoint saved at", checkpoint)
+            if render and (env is not None) and (env_config is not None) and (policy_fn is not None):
+                render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_iter, savefile=True)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
 
     trainer.stop()
@@ -229,9 +237,9 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
     if checkpoint:
         trainer.restore(checkpoint)
     else: # for path
-        checkpoint = "logs/render_from_checkpoint/visualization"
+        checkpoint = "logs/ccv/visualization"
         if not os.path.exists(os.path.split(checkpoint)[0]): os.makedirs(os.path.split(checkpoint)[0])
-        
+
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
@@ -284,11 +292,12 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         diff_frame_list[0].save(save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
         import cv2
         save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.mp4')
-        print("\n# Saving video to:", save_path)
+        print("# Saving video to:", save_path, "\n")
         video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
         for i, image in enumerate(diff_frame_list):
             video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
-            # diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}_{i}.jpg'))
+        for i in [0, len(diff_frame_list)-1]:
+            diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}_{i}.jpg'))
 
 
 def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=100):
