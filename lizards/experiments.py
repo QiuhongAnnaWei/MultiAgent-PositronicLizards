@@ -4,6 +4,7 @@ from main_utils import *
 # from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3, combined_arms_v5
 import ray.rllib.agents.ppo as ppo
+import ray
 import ray.rllib.agents.pg as pg
 from ray.tune.logger import pretty_print
 from gym.spaces import Box, Discrete
@@ -288,10 +289,10 @@ def ray_TD_training_share_split_retooled():
     }
 
     # ray_train_generic(**kwargs)
-    ray_viz_generic(
-        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100'
-                   '-iters__f1282/checkpoint_000100/checkpoint-100',
-        **kwargs)
+    # ray_viz_generic(
+    #     checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_tiger-deer_tiger-split_100'
+    #                '-iters__f1282/checkpoint_000100/checkpoint-100',
+    #     **kwargs)
 
 
 def ray_AP_training_share_split_retooled():
@@ -523,10 +524,13 @@ def main():
     for env_name, env in env_directory.items():
         auto_register_env_ray(env_name, env)
 
+    # print(os.environ.get("RLLIB_NUM_GPUS", "0"))
+    # ray.init(num_gpus=1, local_mode=True)
+    # print(ray.get_gpu_ids())
     # print(kwargs)
     # pettingzoo_peek(adversarial_pursuit_v3, {'map_size': 30})
     # pettingzoo_peek(tiger_deer_v3, {'map_size': 30})
-    pettingzoo_peek(battle_v3, {'map_size': 30})
+    # pettingzoo_peek(battle_v3, {'map_size': 30})
     # all_experiment_1()
     # ray_TD_training_share_split_retooled()
     # ray_CA_generalized()
