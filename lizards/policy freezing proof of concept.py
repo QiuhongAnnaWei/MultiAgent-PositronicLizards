@@ -175,7 +175,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
         self.burn_in_iters = 0
         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
 
-    def on_train_result(self, *, trainer, result, ckwargs):
+    def on_train_result(self, *, trainer, result, **kwargs):
         """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
         (Iteration 0 is the state when *no* training has been done.)"""
 
