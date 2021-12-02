@@ -84,6 +84,7 @@ def train_for_pol_wt_freezing(trainer: Trainable, timestamp=get_timestamp(), num
     results_dicts = []
     policy_weights_for_iters = []
 
+    # NOTE: We might want to stream the weights into a file, instead of trying to keep an array of all the wts across all the iters in memory
     def get_and_log_wts(trainer):
         copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
         # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
