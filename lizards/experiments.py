@@ -451,9 +451,9 @@ def ray_experiment_BF_training_arch(*args):
         print(f"{key}: {rewards[key]}")
 
 
-def ray_experiment_BA_training_arch(*args, evaluate=False):
+def ray_experiment_BA_training_arch(*args, evaluate=True):
     env_name = 'battle'
-    env_config = {'map_size': 30}
+    env_config = {'map_size': 19}
     print(f"\nCONFIG: env_config = {env_config}")
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
@@ -465,11 +465,11 @@ def ray_experiment_BA_training_arch(*args, evaluate=False):
     if True:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = old_arch
-        print(f"\nCONFIG: model-conv_filters = {trainer_config['model']['conv_filters']}")
+        print(f"CONFIG: model-conv_filters = {trainer_config['model']['conv_filters']}\n")
         trainer = ppo.PPOTrainer(config=trainer_config)
         if evaluate:
-            checkpoint ='logs/battle/PPO_battle_newarch_ms19/checkpoint_000100/checkpoint-100'
-            render_from_checkpoint(checkpoint, trainer, env_directory[env_name], env_config, policy_fn, max_iter=10000, savefile=True) 
+            checkpoint ='logs/battle/PPO_battle_100-iters__ms19_cad08/checkpoint_000100/checkpoint-100'
+            render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=1000, savefile=True, is_battle=True) 
         else:
             # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
             log_dir = 'logs/PPO_battle_120-iters__ms30_baed4'
@@ -477,7 +477,7 @@ def ray_experiment_BA_training_arch(*args, evaluate=False):
             checkpoint = 'llogs/PPO_battle_120-iters__ms30_baed4/checkpoint_000120/checkpoint-120'
             trainer.restore(checkpoint)
             checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir,
-                        render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_iter=10000)
+                        render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_iter=10000, s_battle=True)
     else:        
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
         trainer_config["model"]["conv_filters"] = new_arch
@@ -504,12 +504,15 @@ def ray_experiment_BA_training_arch(*args, evaluate=False):
         trainer.get_policy("blue_shared").set_weights(blue_old_weights)
 
         checkpoint = None
-        render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True) 
+        render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True, is_battle=True) 
     
-    rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
-    print("\n### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS ###")
-    for key in rewards:
-        print(f"{key}: {rewards[key]}")
+    # rewards, rewards_log = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
+    # print("\n### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS ###")
+    # for key in rewards:
+    #     print(f"{key}: {rewards[key]}")
+    # print("\n### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS_LOG ###")
+    # for key in rewards_log:
+    #     print(f"{key}: {rewards_log[key]}")
 
 
 def parse_args():
@@ -649,7 +652,7 @@ def main():
     # ray_TD_training_share_split_retooled()
     # ray_CA_generalized()
     # ray_experiment_BF_training_arch()
-    # ray_experiment_BA_training_arch()
+    ray_experiment_BA_training_arch()
     # ray_BF_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()  # Run this after Local (2) finishes.
     # ray_BF_training_share_split_retooled()

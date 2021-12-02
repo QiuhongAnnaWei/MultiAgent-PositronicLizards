@@ -2,6 +2,7 @@ import supersuit as ss
 from pettingzoo.utils.conversions import to_parallel
 import multiprocessing
 import time
+from datetime import datetime
 # from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
@@ -12,6 +13,7 @@ import numpy as np
 import pygame
 # from pygame.locals import*
 import PIL
+from PIL import ImageDraw
 import os
 
 multiprocessing.set_start_method("fork")
@@ -186,15 +188,15 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         trainer_config["num_gpus_per_worker"] = 0.5
     else:  # For CPU training only:
         trainer_config["num_gpus"] = 0
-        trainer_config["num_workers"] = 2
-        trainer_config["num_cpus_per_worker"] = 16
+        # trainer_config["num_workers"] = 2
+        # trainer_config["num_cpus_per_worker"] = 16
 
     trainer_config.update(kwargs)
     return trainer_config
 
 
 def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None, 
-        render=False, env=None, env_config=None, policy_fn=None, max_iter=10000):
+        render=False, env=None, env_config=None, policy_fn=None, max_iter=10000, is_battle=False):
     """
     Trains a Ray Trainer and saves checkpoints
     :param trainer: a Ray Trainer
@@ -216,14 +218,14 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None,
             checkpoint = trainer.save(log_dir)
             print("checkpoint saved at", checkpoint)
             if render and (env is not None) and (env_config is not None) and (policy_fn is not None):
-                render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_iter, savefile=True)
+                render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_iter, savefile=True, is_battle=is_battle)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
 
     trainer.stop()
     return checkpoint
 
 
-def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, savefile=False):
+def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, savefile=False, is_battle=False):
     """
     Visualize from given checkpoint.
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
@@ -232,38 +234,36 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
     :param env: pettingzoo env to use (e.g., adversarial_pursuit_v3)
     :param env_config: config dictionary for the environment (e.g. {"map_size":30})
     :param policy_fn: policy_fn returned from get_policy_config()
+    :param is_battle: if set to true, will add captions of team hp (3rd and 5th channels of state)
     :return: None
     """
     if checkpoint:
         trainer.restore(checkpoint)
     else: # for path
-        checkpoint = "logs/ccv/visualization"
+        checkpoint = "logs/battle/evaluation/rednew229ec_blueoldbaed4_120iter_ms30"
         if not os.path.exists(os.path.split(checkpoint)[0]): os.makedirs(os.path.split(checkpoint)[0])
-
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
-    i = 0
     env.reset()
-
+    timestamp = int(datetime.timestamp(datetime.now()))%10000
     if savefile:
         diff_frame_list = []
         width,height,img = None, None, None
+    i = 0
     for agent in env.agent_iter(max_iter=max_iter):
-        observation, reward, done, info = env.last()
+        observation, reward, done, info = env.last() # (observation[:,:,3/4]==0).sum()
         if done:
             action = None
         else:
             agentpolicy = policy_fn(agent, None)  # map agent id to policy id
             policy = trainer.get_policy(agentpolicy)
-            batch_obs = {
-                'obs': np.expand_dims(observation, 0)  # (10,10,5) -> (1,10,10,5)
-            }
+            batch_obs = { 'obs': np.expand_dims(observation, 0)} # (10,10,5) -> (1,10,10,5)
             batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
             single_action = batched_action[0]
             action = single_action
         env.step(action)
-
+        s = env.state() # (map_size, map_size, 5)
         # out = False
         if savefile:
             img2 = PIL.Image.fromarray(env.render(mode='rgb_array'))
@@ -271,13 +271,15 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
                 width, height = img2.width, img2.height
                 img = np.zeros((width, height))
             if np.array_equal(np.array(img), np.array(img2)) == False:
+                img = img2.copy()
+                ImageDraw.Draw(img2).text( (2, height-10), f"iter={i}",  (0, 0, 0))
+                if is_battle:
+                    ImageDraw.Draw(img2).text( (2, 13), f"HP={str(round((s[:,:,2]).sum(), 2))}",  (0, 0, 0)) 
+                    ImageDraw.Draw(img2).text( (width-55, 13), f"HP={str(round((s[:,:,4]).sum(), 2))}",  (0, 0, 0)) # "{:.4f}".format()
                 diff_frame_list.append(img2)
-            img = img2
-            # video.write(cv2.cvtColor(np.array( PIL.Image.fromarray(env.render(mode='rgb_array')) ), cv2.COLOR_RGB2BGR))
-            # if (i-1) % (env.num_agents) == 0: #33 (0, 34, 67, 100, 133, 166, 199, 232 )
-            #     frame_list.append(PIL.Image.fromarray(env.render(mode='rgb_array')))
         else:
-            env.render(mode='human')
+            pass
+            # env.render(mode='human')
             # ANNA: This code fixes my visualization
             # for event in pygame.event.get():
             #     time.sleep(0.1)
@@ -287,17 +289,17 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         i += 1
     env.close()
     if savefile:
-        save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.gif')
+        save_path = os.path.join(os.path.split(checkpoint)[0], f'{timestamp}_{os.path.split(checkpoint)[1]}.gif')
         print("\n# Saving gif to:", save_path)
         diff_frame_list[0].save(save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
         import cv2
-        save_path = os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}.mp4')
+        save_path = os.path.join(os.path.split(checkpoint)[0], f'{timestamp}_{os.path.split(checkpoint)[1]}.mp4')
         print("# Saving video to:", save_path, "\n")
         video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
         for i, image in enumerate(diff_frame_list):
             video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
         for i in [0, len(diff_frame_list)-1]:
-            diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{os.path.split(checkpoint)[1]}_{i}.jpg'))
+            diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{timestamp}_{os.path.split(checkpoint)[1]}_{i}.jpg'))
 
 
 def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=100):
