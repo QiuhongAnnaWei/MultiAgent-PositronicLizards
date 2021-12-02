@@ -56,35 +56,6 @@ convs = {"adversarial-pursuit": [[13, 10, 1]],
          "combined-arms": [[25, 13, 1]]}
 
 
-def list_map(*args): return list(map(*args))
-def tup_map(*args): return tuple(map(*args))
-def np_itermap(*args, dtype=bool): return np.fromiter(map(*args), dtype=dtype)
-
-test_dict_blue_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])}}
-test_dict_blue_123_copy = deepcopy(test_dict_blue_123)
-test_dict_blue_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])}}
-test_dict_blue_321_copy = deepcopy(test_dict_blue_321)
-
-assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_123_copy) == True
-assert pairwise_eq_chk("blue", test_dict_blue_123, test_dict_blue_321) == False
-
-test_dict_br_123 = {"blue": {'blue/conv_value_1/bias': np.array([1, 2, 3])},
-                    "red": {'red/conv_value_1/bias': np.array([4, 9])}}
-test_dict_br_123_copy = deepcopy(test_dict_br_123)
-test_dict_br_321 = {"blue": {'blue/conv_value_1/bias': np.array([3, 2, 1])},
-                    "red": {'red/conv_value_1/bias': np.array([4, 9])}}
-test_dict_br_321_copy = deepcopy(test_dict_br_321)
-
-test_pw_across_iters = [test_dict_br_123, test_dict_br_123_copy, test_dict_br_321, test_dict_br_321_copy]
-test_pw_eq_chk_dict = {'blue': (True, False, True), 'red': (True, True, True)}
-assert check_eq_policy_wts_across_iters(test_pw_across_iters, ["blue", "red"]) == test_pw_eq_chk_dict
-
-
-
-# get_changepoints(test_pw_eq_chk_dict) 
-# {'blue': (array([1]),), 'red': (array([], dtype=int64),)}
-
-
 
 def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, team_names, log_dir=Path("./logs/pol_freezing")):
     #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") TODO: timestamp is not defined
