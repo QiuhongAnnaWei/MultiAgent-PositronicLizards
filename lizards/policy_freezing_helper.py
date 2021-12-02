@@ -38,13 +38,19 @@ def get_timestamp():
 
 
 # Training / logging related utils
-def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids, timestamp=None, log_dir=Path("./logs/pol_freezing")):
-    #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") 
 
-    if timestsamp is None: timestamp = get_timestamp() # much better to have piped it thru from the start tho
+
+
+
+# TO DO: This has not been tested yet, and likely has bugs
+def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids, timestamp=None, log_dir=Path("./logs/pol_freezing")):
+
+    if timestamp is None: timestamp = get_timestamp() # much better to have piped it thru from the start tho
+    if not log_dir.is_dir(): log_dir.mkdir()
 
     results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
-    pd.DataFrame(results_dicts).to_csv(results_save_path)
+    results_df = pd.DataFrame(results_dicts)
+    results_df.to_csv(results_save_path)
 
     print(f"results_dicts saved to {results_save_path}")
 
@@ -57,6 +63,8 @@ def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_ite
     # TO DO: Save them too
     for policy_id in changepoints:
         print(f"changepoints for policy_id {policy_id} are:\n {changepoints}")
+
+    return changepoints, results_df
 
 
 # Weight getting and changepoint recording utils
@@ -130,9 +138,12 @@ test_check_eq_policy_wts_across_iters()
 def get_changepoints(eq_chk_dict: Dict[str, Iterable]):
     """
     Expects a dict with the structure: str (the policy id) => Tuple of bools
-    False here means: the pol wts at that iteration not equal to those at previous iter
+    False at i-th idx of tuple means: the pol wts at (i+1)th iteration not equal to those at previous iter,
+    where training begins with iter 1.
+
+    Returns dict of arrays of idxes of iterations at which policy wts changed
     """
-    changepts_vec_for_policy_id = lambda policy_id: np.flatnonzero(np.array(eq_chk_dict[policy_id])==False) 
+    changepts_vec_for_policy_id = lambda policy_id: (np.flatnonzero(np.array(eq_chk_dict[policy_id])==False) + 1)
 
     return {policy_id: changepts_vec_for_policy_id(policy_id) for policy_id in eq_chk_dict}
 
@@ -149,14 +160,14 @@ def test_get_changepoints():
     test_pw_eq_chk_dict2 = {'blue': (True, False, True, False, False), 'red': (True, True, True, True, False)}
 
     assert valarray_eq(test_pw_eq_chk_dict0, {'blue': np.array([]), 'red': np.array([])}) == True 
-    assert valarray_eq(get_changepoints(test_pw_eq_chk_dict1), {'blue': np.array([1]), 'red': np.array([])}) == True
+    assert valarray_eq(get_changepoints(test_pw_eq_chk_dict1), {'blue': np.array([2]), 'red': np.array([])}) == True
 
 test_get_changepoints()
 
 
 
 
-
+# red got trained on: iter 1, 4
 
 
 
