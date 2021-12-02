@@ -1,5 +1,5 @@
 from ray.tune.trainable import Trainable
-
+from main_utils import *
 import pytz
 from datetime import datetime
 from copy import deepcopy
@@ -11,7 +11,7 @@ import numpy.typing as npt
 import numpy as np
 from functools import partial
 from pathlib import Path
-
+import time
 
 # Helper constants
 # ================
@@ -40,31 +40,95 @@ def get_timestamp():
 # Training / logging related utils
 
 
-
-
 # TO DO: This has not been tested yet, and likely has bugs
-def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids, timestamp=None, log_dir=Path("./logs/pol_freezing")):
+def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids: Iterable, timestamp=None, log_dir=Path("./logs/pol_freezing")):
 
-    if timestamp is None: timestamp = get_timestamp() # much better to have piped it thru from the start tho
+    if timestamp is None: timestamp = get_timestamp()
     if not log_dir.is_dir(): log_dir.mkdir()
 
+    # Save results dict
     results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
     results_df = pd.DataFrame(results_dicts)
     results_df.to_csv(results_save_path)
 
     print(f"results_dicts saved to {results_save_path}")
 
-    # 1. Save raw pol wts
+    # Save raw pol wts
     policy_save_path = log_dir.joinpath(f"{timestamp}_policy_stats.csv")
     pd.DataFrame(policy_weights_for_iters).to_csv(policy_save_path)
-    # 2. Save and print changepoints
+    
+    # Save and print changepoints
     changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, policy_ids))
-
-    # TO DO: Save them too
-    for policy_id in changepoints:
-        print(f"changepoints for policy_id {policy_id} are:\n {changepoints}")
+    changepts_save_path = log_dir.joinpath(f"{timestamp}_changepoints.csv")
+    
+    list_of_changept_series = [pd.Series(changepoints[policy_id], name=policy_id) for policy_id in policy_ids]
+    pd.concat(list_of_changept_series, axis=1).to_csv(changepts_save_path)
 
     return changepoints, results_df
+
+
+def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_info, num_iters=9, log_intervals=None, log_dir=Path("./logs/pol_freezing")):
+
+    timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
+    if not log_dir.is_dir(): log_dir.mkdir()
+
+    policy_ids = list(trainer.get_config()["multiagent"]["policies"].keys())
+    policyset_to_start_with = const_exp_info["policyset_to_start_with"]
+
+    true_start = time.time()
+
+    results_dicts = []
+    policy_weights_for_iters = []
+
+    # NOTE: We might want to stream the weights into a file, instead of trying to keep an array of all the wts across all the iters in memory
+    def get_and_log_wts(trainer):
+        copied_policy_wts_from_local_worker = deepcopy(trainer.get_weights())
+        # there was an issue on Rllib github tt made me think they might not be careful enough about managing state and refs when it comes to policy wts
+        policy_weights_for_iters.append(copied_policy_wts_from_local_worker)
+
+        # for testing:
+        changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, policy_ids))
+        print(f"changepoints are:\n {changepoints}")
+        return changepoints
+
+
+    # Pre-training stuff
+    # 1. Log the 0-th iteration
+    get_and_log_wts(trainer) 
+
+    # 2. Set trainable policy to only the policy to start with
+    trainer.workers.foreach_worker(lambda worker: worker.set_policies_to_train(policyset_to_start_with))
+
+
+    # Training loop
+    for i in range(num_iters):
+        print(f"Starting training on iter {i + 1}...")
+        start = time.time()
+        
+        result = trainer.train()
+        results_dicts.append(result)
+
+        print(f"batch {i + 1}: took {time.time() - start} seconds")
+
+        get_and_log_wts(trainer) 
+        # could use a callback instead for this tho, e.g. https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
+        # but for now I like the idea of using a causal pathway distinct from tt which we are manipulating
+
+        # TO DO: Chk log interval code
+        if log_intervals is not None:
+            if (i + 1) % log_intervals == 0:
+                checkpoint = trainer.save(log_dir)
+                print("checkpoint saved at", checkpoint)
+
+    print(f"Full training took {(time.time() - true_start) / 60.0} min")
+
+
+    save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, policy_ids, timestamp, log_dir)
+    
+    return results_dicts, policy_weights_for_iters
+
+
+
 
 
 # Weight getting and changepoint recording utils
@@ -160,7 +224,10 @@ def test_get_changepoints():
     test_pw_eq_chk_dict2 = {'blue': (True, False, True, False, False), 'red': (True, True, True, True, False)}
 
     assert valarray_eq(test_pw_eq_chk_dict0, {'blue': np.array([]), 'red': np.array([])}) == True 
+
     assert valarray_eq(get_changepoints(test_pw_eq_chk_dict1), {'blue': np.array([2]), 'red': np.array([])}) == True
+    
+    assert valarray_eq(get_changepoints(test_pw_eq_chk_dict2), {'blue': np.array([2, 4, 5]), 'red': np.array([5])}) == True
 
 test_get_changepoints()
 
