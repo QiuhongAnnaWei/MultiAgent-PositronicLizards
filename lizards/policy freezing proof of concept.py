@@ -184,7 +184,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
         """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
         (Iteration 0 is the state when *no* training has been done.)"""
 
-        curr_iter = trainer.iteration
+        curr_iter = trainer.iteration - 1 # want this to start at zero.
         print(f"Just finished train iter {curr_iter}")
 
         if curr_iter >= self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.turn_lengths_sum) in self.turn_modulus_to_next_team:
@@ -192,7 +192,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
             print(f"On iter {curr_iter + 1}, switching to train {new_team}")
 
             def _set(worker):
-                print(f"_set has been called; self.curr_trainable_policies are {self.curr_trainable_policies}")
+                print(f"_set has been called; callingset_policies_to_train with {new_team}")
                 # Note: `_set` must be enclosed in `on_train_result`!
                 worker.set_policies_to_train({new_team})
             trainer.workers.foreach_worker(_set)
