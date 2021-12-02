@@ -13,6 +13,19 @@ from functools import partial
 from pathlib import Path
 
 
+# Helper constants
+# ================
+
+convs = {"adversarial-pursuit": [[13, 10, 1]],
+         "battle": [[21, 13, 1]],
+         "battlefield": [[21, 13, 1]],
+         "tiger-deer": [[9, 9, 1]],
+         "combined-arms": [[25, 13, 1]]}
+
+
+# Functions
+# =========
+
 def map_wrapper(*args, collector_func): return collector_func(map(*args))
 list_map = partial(map_wrapper, collector_func=list)
 tup_map = partial(map_wrapper, collector_func=tuple)
