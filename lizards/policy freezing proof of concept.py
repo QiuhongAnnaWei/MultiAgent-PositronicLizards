@@ -164,39 +164,37 @@ class APTCallback_BA_simplest_for_quicktest(DefaultCallbacks):
 class APTCallback_BA_to_wrap(DefaultCallbacks):
     # We'll make this cleaner by using the mixin once we're sure that this works
 
-    def __init__(self, team_to_turn_length: dict):
+    def __init__(self, team_turn_len_tuples: list, burn_in_iters = 0):
         super().__init__()
 
-        self.team_to_turn_length = team_to_turn_length
-        self.turn_lengths_sum = sum(self.team_to_turn_length.values())
-        self.teams = frozenset(self.team_to_turn_length.keys())
-        self.curr_trainable_policies = {list(self.teams)[0]}
+        # Sum all the turn lengths -> Can normalize trainer.iteration w/ this value.
+        self.turn_lengths_sum = sum([x[1] for x in team_turn_len_tuples])
 
-        self.burn_in_iters = 0
+        # Then can map certain modulus values to next team (e.g. 0->Red, 5-> Blue, when team_turn_len_tuples=[(Red, 5), (Blue, 1)])
+        self.turn_modulus_to_next_team = {}
+        curr_turns = 0
+        for team_name, turn_len in team_turn_len_tuples:
+            self.turn_modulus_to_next_team[curr_turns] = team_name
+            curr_turns += turn_len
+
         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
+        self.burn_in_iters = burn_in_iters
 
     def on_train_result(self, *, trainer, result, **kwargs):
         """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
         (Iteration 0 is the state when *no* training has been done.)"""
 
         curr_iter = trainer.iteration
-        
-
         print(f"Just finished train iter {curr_iter}")
-        if curr_iter > self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.turn_lengths_sum) in self.team_to_turn_length.values():
-            team_to_freeze = self.curr_trainable_policies # for debug
 
-            self.curr_trainable_policies = self.teams - self.curr_trainable_policies # swaps teams
-
-            team_to_train = self.curr_trainable_policies # for debug
-
-            print(f"On iter {curr_iter + 1}, {team_to_freeze} will be frozen, {team_to_train} will be trained")
+        if curr_iter >= self.burn_in_iters and ((curr_iter - self.burn_in_iters) % self.turn_lengths_sum) in self.turn_modulus_to_next_team:
+            new_team = self.turn_modulus_to_next_team[((curr_iter - self.burn_in_iters) % self.turn_lengths_sum)]
+            print(f"On iter {curr_iter + 1}, switching to train {new_team}")
 
             def _set(worker):
                 print(f"_set has been called; self.curr_trainable_policies are {self.curr_trainable_policies}")
                 # Note: `_set` must be enclosed in `on_train_result`!
-                worker.set_policies_to_train(self.curr_trainable_policies)
-
+                worker.set_policies_to_train({new_team})
             trainer.workers.foreach_worker(_set)
 
 
@@ -268,7 +266,7 @@ def BA_apt_1_30_PROTOTYPE(*args, map_size=19, timestamp=get_timestamp()):
 
     class APTCallback_BA_test_1_30(APTCallback_BA_to_wrap):
         def __init__(self):
-            super().__init__({"red": 1, "blue": 30})
+            super().__init__([("red", 1), ("blue", 30)])
 
 
     ray_trainer_config = {
