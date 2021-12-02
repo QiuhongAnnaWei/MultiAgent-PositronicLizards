@@ -117,11 +117,11 @@ def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_in
         # TO DO: Chk log interval code
         if log_intervals is not None:
             if (i + 1) % log_intervals == 0:
-                checkpoint = trainer.save(log_dir)
-                print("checkpoint saved at", checkpoint)
+                checkpoint_path = trainer.save(str(log_dir))
+                print("checkpoint saved at", checkpoint_path)
 
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
-
+    checkpoint_path = trainer.save(str(log_dir)); print("checkpoint saved at", checkpoint_path)
 
     save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, policy_ids, timestamp, log_dir)
     
