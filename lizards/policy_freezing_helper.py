@@ -26,6 +26,7 @@ convs = {"adversarial-pursuit": [[13, 10, 1]],
 # Functions
 # =========
 
+# Generic helper utils
 def map_wrapper(*args, collector_func): return collector_func(map(*args))
 list_map = partial(map_wrapper, collector_func=list)
 tup_map = partial(map_wrapper, collector_func=tuple)
@@ -36,6 +37,27 @@ def get_timestamp():
     return short_timestamp
 
 
+# Training / logging related utils
+def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, team_names, log_dir=Path("./logs/pol_freezing")):
+    #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") TODO: timestamp is not defined
+    results_save_path = log_dir.joinpath(f"{get_timestamp()}_results_stats.csv")
+    pd.DataFrame(results_dicts).to_csv(results_save_path)
+
+    print(f"results_dicts saved to {results_save_path}")
+
+    # TO DO: 
+    # 1. Save raw pol wts
+    policy_save_path = log_dir.joinpath(f"{get_timestamp()}_policy_stats.csv")
+    pd.DataFrame(policy_weights_for_iters).to_csv(policy_save_path)
+    # 2. Save and print changepoints
+    changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, team_names))
+
+    for team in changepoints:
+        print(f"changepoints for team {team} are:\n {changepoints}")
+
+
+# Weight getting and changepoint recording utils
+
 def get_weights(trainer: Trainable, policy_id: str):
     """
     Gets the weights for a given policy_id.
@@ -43,7 +65,6 @@ def get_weights(trainer: Trainable, policy_id: str):
     policy_id: policy_id for use in the dictionary
     """
     return trainer.get_policy(policy_id).get_weights()
-
 
 def pairwise_eq_chk(policy_id, wt_dict1, wt_dict2):
     """
