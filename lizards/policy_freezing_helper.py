@@ -38,22 +38,25 @@ def get_timestamp():
 
 
 # Training / logging related utils
-def save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, team_names, log_dir=Path("./logs/pol_freezing")):
-    #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") TODO: timestamp is not defined
-    results_save_path = log_dir.joinpath(f"{get_timestamp()}_results_stats.csv")
+def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids, timestamp=None, log_dir=Path("./logs/pol_freezing")):
+    #results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv") 
+
+    if timestsamp is None: timestamp = get_timestamp() # much better to have piped it thru from the start tho
+
+    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
     pd.DataFrame(results_dicts).to_csv(results_save_path)
 
     print(f"results_dicts saved to {results_save_path}")
 
-    # TO DO: 
     # 1. Save raw pol wts
-    policy_save_path = log_dir.joinpath(f"{get_timestamp()}_policy_stats.csv")
+    policy_save_path = log_dir.joinpath(f"{timestamp}_policy_stats.csv")
     pd.DataFrame(policy_weights_for_iters).to_csv(policy_save_path)
     # 2. Save and print changepoints
-    changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, team_names))
+    changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, policy_ids))
 
-    for team in changepoints:
-        print(f"changepoints for team {team} are:\n {changepoints}")
+    # TO DO: Save them too
+    for policy_id in changepoints:
+        print(f"changepoints for policy_id {policy_id} are:\n {changepoints}")
 
 
 # Weight getting and changepoint recording utils
