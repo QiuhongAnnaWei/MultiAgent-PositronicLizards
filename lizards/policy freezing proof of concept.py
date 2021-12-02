@@ -34,7 +34,7 @@ from pathlib import Path
 TODO: 
 1. Move the weight checking logic into a seperate callback function (YM).
 2. Changepoints not working as expected (YM)
-3. Move common logic into a helper into policy_freezing_helper (YM).
+3. Move common logic into a helper into policy_freezing_helper; move experiment-related code into their own files (YM).
 """
 
 """ TO DO WED Dec 1
@@ -203,7 +203,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
         self.burn_in_iters = 0
         # How many iterations to train normally for, before starting alternating policy training/freezing regimen
 
-    def on_train_result(self, *, trainer, result, **kwargs):
+    def on_train_result(self, *, trainer, result, ckwargs):
         """ will be called at the end of Trainable.train(), so that the first time this is called, trainer.iteration will == 1. 
         (Iteration 0 is the state when *no* training has been done.)"""
 
