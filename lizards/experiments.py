@@ -451,34 +451,59 @@ def ray_experiment_BF_training_arch(*args):
 
 def ray_experiment_BA_training_arch(*args, evaluate=False):
     env_name = 'battle'
-    env_config = {'map_size': 19}
+    env_config = {'map_size': 30}
     print(f"\nCONFIG: env_config = {env_config}")
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
-    train_iters = 100
+    train_iters = 80
     log_intervals = 20
     gpu = False
     new_arch = [[7, [5, 5], 2], [21, [3, 3], 2], [21, [4,4], 1]] # (13,13,5) -> (7,5,5) -> (21,3,3) -> (21,1,1)
     old_arch = [[21, 13, 1]] 
     if True:
         trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
-        trainer_config["model"]["conv_filters"] = new_arch
+        trainer_config["model"]["conv_filters"] = old_arch
         print(f"\nCONFIG: model-conv_filters = {trainer_config['model']['conv_filters']}")
         trainer = ppo.PPOTrainer(config=trainer_config)
         if evaluate:
-            # checkpoint ='logs/ccv/PPO_battle_newarch_ms19/checkpoint_000100/checkpoint-100'
-            checkpoint = 'logs/pretrained/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100'
+            checkpoint ='logs/battle/PPO_battle_newarch_ms19/checkpoint_000100/checkpoint-100'
             render_from_checkpoint(checkpoint, trainer, env_directory[env_name], env_config, policy_fn, max_iter=10000, savefile=True) 
         else:
             # log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),  f"logs/PPO_battle_newarch_{uuid.uuid4().hex[:5]}")
-            log_dir = 'logs/pretrained/PPO_battle_newarch_ca3ee'
+            log_dir = 'logs/PPO_battle_120-iters__ms30_baed4'
             print(f"\n### (ray_experiment_BA_training_arch) `log_dir` has been set to {log_dir} ###\n")
-            checkpoint = 'logs/pretrained/PPO_battle_newarch_ca3ee/checkpoint_000200/checkpoint-200'
+            checkpoint = 'llogs/PPO_battle_120-iters__ms30_baed4/checkpoint_000120/checkpoint-120'
             trainer.restore(checkpoint)
             checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir,
                         render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_iter=10000)
     else:        
-        pass
+        trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+        trainer_config["model"]["conv_filters"] = new_arch
+        temp_trainer = ppo.PPOTrainer(config=trainer_config)
+        temp_trainer.restore('logs/battle/ccv_battle_newarch_ms30_229ec/checkpoint_000120/checkpoint-120')
+        red_new_weights = temp_trainer.get_policy("red_shared").get_weights()
+        temp_trainer.stop()
+
+        trainer_config["model"]["conv_filters"] = old_arch
+        temp_trainer = ppo.PPOTrainer(config=trainer_config)
+        temp_trainer.restore('logs/battle/PPO_battle_120-iters__ms30_baed4/checkpoint_000120/checkpoint-120')
+        blue_old_weights = temp_trainer.get_policy("blue_shared").get_weights()
+        temp_trainer.stop()
+
+        policy_dict["red_shared"] = (policy_dict["red_shared"][0], policy_dict["red_shared"][1], policy_dict["red_shared"][2], 
+                { "model": {  "conv_filters": new_arch, "conv_activation": "relu" }})
+        policy_dict["blue_shared"] = (policy_dict["blue_shared"][0], policy_dict["blue_shared"][1], policy_dict["blue_shared"][2], 
+                { "model": { "conv_filters": old_arch, "conv_activation": "relu" }})
+        env_config = {'map_size': 30}
+        trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+        del trainer_config["model"]
+        trainer = ppo.PPOTrainer(config=trainer_config)
+        trainer.get_policy("red_shared").set_weights(red_new_weights) # transfer the weights
+        trainer.get_policy("blue_shared").set_weights(blue_old_weights)
+
+        checkpoint = None
+        render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True) 
+    
     rewards = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
     print("\n### (ray_experiment_BA_training_arch) POLICY EVALUATION: REWARDS ###")
     for key in rewards:
