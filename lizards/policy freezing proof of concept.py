@@ -30,6 +30,13 @@ from pathlib import Path
 # https://github.com/ray-project/ray/blob/fd13bac9b3fc2e7142065c759f2c9fc1c753e912/rllib/examples/self_play_league_based_with_open_spiel.py
 # https://github.com/ray-project/ray/blob/fd13bac9b3fc2e7142065c759f2c9fc1c753e912/rllib/examples/self_play_with_open_spiel.py
 
+"""
+TODO: 
+1. Move the weight checking logic into a seperate callback function (YM).
+2. Changepoints not working as expected (YM)
+3. Move common logic into a helper into policy_freezing_helper (YM).
+"""
+
 """ TO DO WED Dec 1
 0. Write a callback for recording / logging the policy weihgts, so tt we can use tune.run instead of our manual training loop
 1. Test training loop with APTCallback_BA_simplest_for_quicktest to check if policy freezing stuff has been recorded properly
