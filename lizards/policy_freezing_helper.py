@@ -1,7 +1,3 @@
-# Please either leave tests in file or put them in another file and have them run automatically
-# These tests serve not just as tests, but also as documentation / explanations of how the functions work
-# If you are wondering why a testing framework was not used: we're rushing for time here.
-
 from ray.tune.trainable import Trainable
 
 import pytz
