@@ -16,6 +16,7 @@ import numpy as np
 from functools import partial
 from pathlib import Path
 
+
 def map_wrapper(*args, collector_func): return collector_func(map(*args))
 list_map = partial(map_wrapper, collector_func=list)
 tup_map = partial(map_wrapper, collector_func=tuple)
@@ -109,15 +110,15 @@ def valarray_eq(dict1: Dict[str, npt.ArrayLike], dict2: Dict[str, npt.ArrayLike]
     return np.array(bool_list_from_key_map).all()
 
 
+def test_get_changepoints():
+    test_pw_eq_chk_dict0 = {'blue': (), 'red': ()}
+    test_pw_eq_chk_dict1 = {'blue': (True, False, True), 'red': (True, True, True)}
+    test_pw_eq_chk_dict2 = {'blue': (True, False, True, False, False), 'red': (True, True, True, True, False)}
 
-test_pw_eq_chk_dict0 = {'blue': (), 'red': ()}
-test_pw_eq_chk_dict1 = {'blue': (True, False, True), 'red': (True, True, True)}
-test_pw_eq_chk_dict2 = {'blue': (True, False, True, False, False), 'red': (True, True, True, True, False)}
+    assert valarray_eq(test_pw_eq_chk_dict0, {'blue': np.array([]), 'red': np.array([])}) == True 
+    assert valarray_eq(get_changepoints(test_pw_eq_chk_dict1), {'blue': np.array([1]), 'red': np.array([])}) == True
 
-assert valarray_eq(test_pw_eq_chk_dict0, {'blue': np.array([]), 'red': np.array([])}) == True 
-assert valarray_eq(get_changepoints(test_pw_eq_chk_dict1), {'blue': np.array([1]), 'red': np.array([])}) == True
-
-
+test_get_changepoints()
 
 
 
