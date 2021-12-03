@@ -197,7 +197,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
 
 
 def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None, 
-        render=False, env=None, env_config=None, policy_fn=None, max_iter=10000, is_battle=False):
+        render=False, env=None, env_config=None, policy_fn=None, max_render_iter=10000, is_battle=False):
     """
     Trains a Ray Trainer and saves checkpoints
     :param trainer: a Ray Trainer
@@ -219,7 +219,7 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None,
             checkpoint = trainer.save(log_dir)
             print("checkpoint saved at", checkpoint)
             if render and (env is not None) and (env_config is not None) and (policy_fn is not None):
-                render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_iter, savefile=True, is_battle=is_battle)
+                render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_render_iter, savefile=True, is_battle=is_battle)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
 
     trainer.stop()
