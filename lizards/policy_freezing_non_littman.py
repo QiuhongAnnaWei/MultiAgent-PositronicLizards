@@ -157,7 +157,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # parser.add_argument('experiment', help="train, peek")
     parser.add_argument('--test', dest='test_mode', default=False, action='store_true')
-    parser.add_argument('-i', '--num-iters', dest='num_iters', default=100,
+    parser.add_argument('-i', '--num-iters', type=int, dest='num_iters', default=120,
                         help="number of training iterations")
     parser.add_argument('-li', '--log-intervals', dest='log_intervals', default=20,
                         help="logging interval")
