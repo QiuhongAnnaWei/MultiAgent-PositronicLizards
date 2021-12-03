@@ -40,26 +40,33 @@ def get_timestamp():
 # Training / logging related utils
 
 
-# TO DO: This has not been tested yet, and likely has bugs
-def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids: Iterable, timestamp=None, log_dir=Path("./logs/pol_freezing")):
 
-    if timestamp is None: timestamp = get_timestamp()
-    if not log_dir.is_dir(): log_dir.mkdir()
+# TO DO: This has not been tested yet, and likely has bugs
+def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids: Iterable, gen_dynamic_info):
+
+    timestamp, log_dir = gen_dynamic_info["timestamp"], gen_dynamic_info["log_dir"]
+
+    test_flag = "_TEST" if gen_dynamic_info["test_mode"] else ""
+    r_num, b_num = gen_dynamic_info["r_num"], gen_dynamic_info["b_num"]
+    full_log_dir = log_dir.joinpath(f"r{r_num}_b{b_num}_{timestamp}{test_flag}")
+    if not full_log_dir.is_dir(): full_log_dir.mkdir()
+
+    def savepath(suffix): return full_log_dir.joinpath(suffix)
 
     # Save results dict
-    results_save_path = log_dir.joinpath(f"{timestamp}_results_stats.csv")
+    results_save_path = savepath("results_stats.csv")
     results_df = pd.DataFrame(results_dicts)
     results_df.to_csv(results_save_path)
 
     print(f"results_dicts saved to {results_save_path}")
 
     # Save raw pol wts
-    policy_save_path = log_dir.joinpath(f"{timestamp}_policy_stats.csv")
+    policy_save_path = savepath("policy_stats.csv")
     pd.DataFrame(policy_weights_for_iters).to_csv(policy_save_path)
     
     # Save and print changepoints
     changepoints = get_changepoints(check_eq_policy_wts_across_iters(policy_weights_for_iters, policy_ids))
-    changepts_save_path = log_dir.joinpath(f"{timestamp}_changepoints.csv")
+    changepts_save_path = savepath("changepoints.csv")
     
     list_of_changept_series = [pd.Series(changepoints[policy_id], name=policy_id) for policy_id in policy_ids]
     pd.concat(list_of_changept_series, axis=1).to_csv(changepts_save_path)
@@ -67,7 +74,8 @@ def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_ite
     return changepoints, results_df
 
 
-def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_info, num_iters=9, log_intervals=None, log_dir=Path("./logs/pol_freezing")):
+def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_info):
+    num_iters, log_intervals, log_dir = gen_dynamic_info["num_iters"], gen_dynamic_info["log_intervals"], gen_dynamic_info["log_dir"]
 
     timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
     if not log_dir.is_dir(): log_dir.mkdir()
@@ -123,10 +131,9 @@ def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_in
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
     checkpoint_path = trainer.save(str(log_dir)); print("checkpoint saved at", checkpoint_path)
 
-    save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, policy_ids, timestamp, log_dir)
+    save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, policy_ids, gen_dynamic_info)
     
     return results_dicts, policy_weights_for_iters
-
 
 
 

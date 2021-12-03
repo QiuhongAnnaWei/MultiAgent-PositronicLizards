@@ -2,7 +2,7 @@ from experiments import *
 from main_utils import *
 from policy_freezing_helper import *
 
-
+import argparse
 from copy import deepcopy
 from pathlib import Path
 import pandas as pd
@@ -35,11 +35,15 @@ const_exp_info = {"help": "Non-Littman Battle experiment setup; *not* experiment
                   "env_fn": env_directory["battle"],
                   "map_size": 19,
                   "policies": ("red", "blue"),
-                  "policyset_to_start_with": {"blue"}
-                  }
+                  "policyset_to_start_with": {"blue"}}
 
 
-gen_dynamic_info = {"timestamp": None}
+gen_dynamic_info = {"timestamp": None,
+                    "r_num": None,
+                    "b_num": None,
+                    "log_dir": Path("./logs/pol_freezing"),
+                    "test_mode": True,
+                    "num_iters": None}
 
 
 def chk_time():
@@ -97,15 +101,12 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
 def BA_pol_mapping_fn(agent_id, episode, worker, **kwargs):
     return "red" if agent_id.startswith("red") else "blue"
 
-def BA_apt_1_30_PROTOTYPE(*args, is_test = False):
+def BA_apt_1_30_PROTOTYPE(*args):
 
-    training_setup = {"num_iters": 70,
-                     "log_intervals": 10,
-                     "log_dir": Path("./logs/pol_freezing")}
 
-    if is_test: 
-        training_setup["num_iters"] = 12
-        training_setup["log_intervals"] = None
+    if gen_dynamic_info["test_mode"]: 
+        gen_dynamic_info["num_iters"] = 12
+        gen_dynamic_info["log_intervals"] = None
 
     timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
 
@@ -114,22 +115,14 @@ def BA_apt_1_30_PROTOTYPE(*args, is_test = False):
     action_space, obs_space = env_spaces[env_name]["action_space"], env_spaces[env_name]["obs_space"]
 
 
-    class APTCallback_BA_1_30(APTCallback_BA_to_wrap):
+    class APTCallback_BA(APTCallback_BA_to_wrap):
         def __init__(self):
-            super().__init__([("red", 1), ("blue", 30)])
-
-    class APTCallback_BA_30_30(APTCallback_BA_to_wrap):
-        def __init__(self):
-            super().__init__([("red", 30), ("blue", 30)])
-
-    class APTCallback_BA_TEST(APTCallback_BA_to_wrap):
-        def __init__(self):
-            super().__init__([("red", 1), ("blue", 3)])
+            super().__init__([("red", gen_dynamic_info["r_num"]), ("blue", gen_dynamic_info["b_num"])])
 
 
     ray_trainer_config = {
 
-        "callbacks":  APTCallback_BA_1_30, # IMPT 
+        "callbacks":  APTCallback_BA, # IMPT 
 
         "multiagent": {
             "policies": {"red": (None, obs_space, action_space, dict()),
@@ -151,14 +144,31 @@ def BA_apt_1_30_PROTOTYPE(*args, is_test = False):
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
     }
 
-    if is_test: 
-        ray_trainer_config["callbacks"] = APTCallback_BA_TEST
+    if gen_dynamic_info["test_mode"]: 
         ray_trainer_config["train_batch_size"] = 1000
 
     trainer = ppo.PPOTrainer(config=ray_trainer_config)
-    results_dicts, policy_weights_for_iters = train_for_pol_wt_freezing(trainer, const_exp_info, gen_dynamic_info, **training_setup)
+    results_dicts, policy_weights_for_iters = train_for_pol_wt_freezing(trainer, const_exp_info, gen_dynamic_info)
 
     return results_dicts, policy_weights_for_iters # for interactive testing
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    # parser.add_argument('experiment', help="train, peek")
+    parser.add_argument('--test', dest='test_mode', default=False, action='store_true')
+    parser.add_argument('-i', '--num-iters', dest='num_iters', default=100,
+                        help="number of training iterations")
+    parser.add_argument('-li', '--log-intervals', dest='log_intervals', default=20,
+                        help="logging interval")
+
+    parser.add_argument('-r', dest='r_num', type=int, default=1)
+    parser.add_argument('-b', dest='b_num', type=int, default=5)
+
+    args = parser.parse_args()
+
+    return args
+
 
 
 if __name__ == "__main__":
@@ -167,5 +177,10 @@ if __name__ == "__main__":
 
     gen_dynamic_info["timestamp"] = get_timestamp()
 
-    #BF_alternating_pol_training_PROTOTYPE()
-    BA_apt_1_30_PROTOTYPE(is_test = True)
+    args = parse_args()
+    gen_dynamic_info["test_mode"], gen_dynamic_info["log_intervals"], gen_dynamic_info["num_iters"] = args.test_mode, args.log_intervals, args.num_iters
+    gen_dynamic_info["r_num"], gen_dynamic_info["b_num"] = int(args.r_num), int(args.b_num)
+
+    print(f"r_num is {gen_dynamic_info['r_num']}, b_num is {gen_dynamic_info['b_num']}")
+
+    BA_apt_1_30_PROTOTYPE()
