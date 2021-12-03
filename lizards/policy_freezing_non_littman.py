@@ -34,16 +34,17 @@ const_exp_info = {"help": "Non-Littman Battle experiment setup; *not* experiment
                   "env_name": "battle",
                   "env_fn": env_directory["battle"],
                   "map_size": 19,
-                  "policies": ("red", "blue"),
-                  "policyset_to_start_with": {"blue"}}
+                  "policies": ("red", "blue")}
 
 
 gen_dynamic_info = {"timestamp": None,
                     "r_num": None,
                     "b_num": None,
+                    "policyset_to_start_with": None,
                     "log_dir": Path("./logs/pol_freezing"),
                     "test_mode": True,
-                    "num_iters": None}
+                    "num_iters": None,
+                    "no_alt_pfreeze": False}
 
 
 def chk_time():
@@ -122,8 +123,6 @@ def BA_apt_1_30_PROTOTYPE(*args):
 
     ray_trainer_config = {
 
-        "callbacks":  APTCallback_BA, # IMPT 
-
         "multiagent": {
             "policies": {"red": (None, obs_space, action_space, dict()),
                          "blue": (None, obs_space, action_space, dict())},
@@ -144,6 +143,9 @@ def BA_apt_1_30_PROTOTYPE(*args):
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
     }
 
+    if not gen_dynamic_info.get("no_alt_pfreeze", False):
+        ray_trainer_config["callbacks"] = APTCallback_BA
+
     if gen_dynamic_info["test_mode"]: 
         ray_trainer_config["train_batch_size"] = 1000
 
@@ -157,6 +159,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # parser.add_argument('experiment', help="train, peek")
     parser.add_argument('--test', dest='test_mode', default=False, action='store_true')
+    parser.add_argument('--no-alt-pfreeze', dest='no_alt_pfreeze', default=False, action='store_true')
+    
     parser.add_argument('-i', '--num-iters', type=int, dest='num_iters', default=120,
                         help="number of training iterations")
     parser.add_argument('-li', '--log-intervals', dest='log_intervals', default=20,
@@ -179,8 +183,20 @@ if __name__ == "__main__":
 
     args = parse_args()
     gen_dynamic_info["test_mode"], gen_dynamic_info["log_intervals"], gen_dynamic_info["num_iters"] = args.test_mode, args.log_intervals, args.num_iters
-    gen_dynamic_info["r_num"], gen_dynamic_info["b_num"] = int(args.r_num), int(args.b_num)
+    gen_dynamic_info["no_alt_pfreeze"] = bool(args.no_alt_pfreeze)
 
-    print(f"r_num is {gen_dynamic_info['r_num']}, b_num is {gen_dynamic_info['b_num']}")
+    if gen_dynamic_info["no_alt_pfreeze"]:
+        gen_dynamic_info["r_num"], gen_dynamic_info["b_num"] = None, None
+    else:
+        gen_dynamic_info["r_num"], gen_dynamic_info["b_num"] = int(args.r_num), int(args.b_num)
+
+    if int(args.b_num) == 1:
+        gen_dynamic_info["policyset_to_start_with"] = {"blue"}
+    else:
+        gen_dynamic_info["policyset_to_start_with"] = None
+
+
+    print(f"gen_dynamic_info is {gen_dynamic_info}")
+
 
     BA_apt_1_30_PROTOTYPE()

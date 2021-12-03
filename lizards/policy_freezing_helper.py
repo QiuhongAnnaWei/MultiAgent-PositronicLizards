@@ -48,7 +48,12 @@ def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_ite
 
     test_flag = "_TEST" if gen_dynamic_info["test_mode"] else ""
     r_num, b_num = gen_dynamic_info["r_num"], gen_dynamic_info["b_num"]
-    full_log_dir = log_dir.joinpath(f"r{r_num}_b{b_num}_{timestamp}{test_flag}")
+    num_iters = gen_dynamic_info["num_iters"]
+    
+    if r_num is None and b_num is None:
+        full_log_dir = log_dir.joinpath(f"{timestamp}_i{num_iters}_no_rb_diff{test_flag}")
+    else:
+        full_log_dir = log_dir.joinpath(f"{timestamp}_i{num_iters}_r{r_num}_b{b_num}_{test_flag}")
     if not full_log_dir.is_dir(): full_log_dir.mkdir()
 
     def savepath(suffix): return full_log_dir.joinpath(suffix)
@@ -81,7 +86,7 @@ def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_in
     if not log_dir.is_dir(): log_dir.mkdir()
 
     policy_ids = list(trainer.get_config()["multiagent"]["policies"].keys())
-    policyset_to_start_with = const_exp_info["policyset_to_start_with"]
+    policyset_to_start_with = gen_dynamic_info.get("policyset_to_start_with", None)
 
     true_start = time.time()
 
@@ -104,8 +109,10 @@ def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_in
     # 1. Log the 0-th iteration
     get_and_log_wts(trainer) 
 
-    # 2. Set trainable policy to only the policy to start with
-    trainer.workers.foreach_worker(lambda worker: worker.set_policies_to_train(policyset_to_start_with))
+    # 2. If we want only one team to train on the first iteration, set trainable policy to only the policy to start with
+    if not gen_dynamic_info.get("no_alt_pfreeze", False) and policyset_to_start_with is not None:
+        trainer.workers.foreach_worker(lambda worker: worker.set_policies_to_train(policyset_to_start_with))
+        print(f"Training only {policyset_to_start_with} on first iter")
 
 
     # Training loop
