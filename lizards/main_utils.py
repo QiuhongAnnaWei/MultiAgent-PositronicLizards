@@ -10,11 +10,12 @@ from ray.tune.registry import register_env
 from ray.tune.logger import pretty_print
 from gym.spaces import Box
 import numpy as np
-import pygame
+# import pygame
 # from pygame.locals import*
 import PIL
 from PIL import ImageDraw
 import os
+import cv2
 
 multiprocessing.set_start_method("fork")
 
@@ -225,7 +226,7 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None,
     return checkpoint
 
 
-def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, savefile=False, is_battle=False):
+def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, savefile=False, is_battle=False, logname = None):
     """
     Visualize from given checkpoint.
     Reference: https://github.com/Farama-Foundation/PettingZoo/blob/master/tutorials/render_rllib_leduc_holdem.py
@@ -235,23 +236,29 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
     :param env_config: config dictionary for the environment (e.g. {"map_size":30})
     :param policy_fn: policy_fn returned from get_policy_config()
     :param is_battle: if set to true, will add captions of team hp (3rd and 5th channels of state)
+    :param logname: filepath to log to (without extension); e.g. 'logs/battle/evaluation/12345'
     :return: None
     """
     if checkpoint:
         trainer.restore(checkpoint)
-    else: # for path
-        checkpoint = "logs/battle/evaluation/rednew229ec_blueoldbaed4_120iter_ms30"
-        if not os.path.exists(os.path.split(checkpoint)[0]): os.makedirs(os.path.split(checkpoint)[0])
+    # else: # for path
+    #     checkpoint = f"logs/battle/evaluation/{logname}"
+    #     if not os.path.exists(os.path.split(checkpoint)[0]): os.makedirs(os.path.split(checkpoint)[0])
+    if logname is None:
+        logname = checkpoint
+    else:
+        if not os.path.exists(os.path.split(logname)[0]): os.makedirs(os.path.split(logname)[0])
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
     env.reset()
-    timestamp = int(datetime.timestamp(datetime.now()))%10000
     if savefile:
         diff_frame_list = []
         width,height,img = None, None, None
     i = 0
     for agent in env.agent_iter(max_iter=max_iter):
+        if i % 1000 == 0:
+            print(f"rendering: iteration {i} ...")
         observation, reward, done, info = env.last() # (observation[:,:,3/4]==0).sum()
         if done:
             action = None
@@ -289,17 +296,16 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         i += 1
     env.close()
     if savefile:
-        save_path = os.path.join(os.path.split(checkpoint)[0], f'{timestamp}_{os.path.split(checkpoint)[1]}.gif')
-        print("\n# Saving gif to:", save_path)
+        save_path = f"{logname}.gif"
+        log(f"{logname}.txt", f"\n# Saving gif to: {save_path}")
         diff_frame_list[0].save(save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
-        import cv2
-        save_path = os.path.join(os.path.split(checkpoint)[0], f'{timestamp}_{os.path.split(checkpoint)[1]}.mp4')
-        print("# Saving video to:", save_path, "\n")
+        save_path = f"{logname}.mp4"
+        log(f"{logname}.txt", f"\n# Saving video to: {save_path}\n")
         video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
         for i, image in enumerate(diff_frame_list):
             video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
         for i in [0, len(diff_frame_list)-1]:
-            diff_frame_list[i].save(os.path.join(os.path.split(checkpoint)[0], f'{timestamp}_{os.path.split(checkpoint)[1]}_{i}.jpg'))
+            diff_frame_list[i].save(f"{logname}_{i}.jpg")
 
 
 def evaluate_policies(checkpoint, trainer, env, env_config, policy_fn, gamma=0.99, max_iter=100):
@@ -368,3 +374,20 @@ def pettingzoo_peek(env, env_config):
     e.reset()
     e.render()
     input("Press Enter to close window...")
+
+def log(fp, msg, toprint=True):
+    """
+    For printing and appending to log file
+    :param msg: a singular message or an iterable of message
+    """
+    if toprint:
+        if isinstance(msg, list):
+            for m in msg:
+                print(m)
+        else:
+            print(msg)
+    with open(fp, 'a') as f:
+        if isinstance(msg, list):
+            f.writelines(msg)
+        else:
+            f.write(msg)
