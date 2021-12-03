@@ -162,8 +162,8 @@ def parse_args():
     parser.add_argument('-li', '--log-intervals', dest='log_intervals', default=20,
                         help="logging interval")
 
-    parser.add_argument('-r', dest='r_num', type=int, default=1)
-    parser.add_argument('-b', dest='b_num', type=int, default=5)
+    parser.add_argument('-r', dest='r_num', type=int, default=5)
+    parser.add_argument('-b', dest='b_num', type=int, default=1)
 
     args = parser.parse_args()
 
