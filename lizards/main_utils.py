@@ -375,6 +375,7 @@ def pettingzoo_peek(env, env_config):
     e.render()
     input("Press Enter to close window...")
 
+
 def log(fp, msg, toprint=True):
     """
     For printing and appending to log file
