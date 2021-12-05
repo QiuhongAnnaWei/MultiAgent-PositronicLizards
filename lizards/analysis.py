@@ -132,7 +132,7 @@ def main():
     simple_reward_viz(list(range(len(ap_shared_shared['prey']))), ap_shared_shared['prey'])
     simple_reward_viz(list(range(len(ap_shared_shared['predator']))), ap_shared_shared['predator'])
     comparative_reward_viz(ap_shared_shared['prey'], ap_shared_shared['predator'], xlabel='prey',
-                           ylabel='predator', style='tight')
+                           ylabel='predator', style='full')
 
     # AP shared split plots
     ap_shared_split = get_result_data("result_data/ap_shared_split/result.json")
