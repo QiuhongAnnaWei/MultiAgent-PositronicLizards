@@ -28,15 +28,21 @@ def get_result_data(fname, avg_prefixes=True, distribution_type='mean'):
     """
     with open(fname, "r") as fp:
         data = [json.loads(line) for line in fp]
+        i = 0
+        while True:
+            if data[i]['policy_reward_mean'] == {}:
+                i += 1
+            else:
+                break
 
         reward_history = dict()
 
         if avg_prefixes:
-            teams = set(map(lambda x: x.split("_")[0], list(data[0][f'policy_reward_{distribution_type}'].keys())))
+            teams = set(map(lambda x: x.split("_")[0], list(data[i][f'policy_reward_{distribution_type}'].keys())))
             for t in teams:
                 reward_history[t] = []
         else:
-            for k, v in data[0][f'policy_reward_{distribution_type}'].items():
+            for k, v in data[i][f'policy_reward_{distribution_type}'].items():
                 reward_history[k] = []
 
         for i in data:
@@ -50,8 +56,14 @@ def get_result_data(fname, avg_prefixes=True, distribution_type='mean'):
                     team_rewards[team] += v
                     team_counts[team] += 1
 
+                can_collect = True
                 for t in teams:
-                    reward_history[t].append(team_rewards[t]/team_counts[t])
+                    if team_counts[t] == 0:
+                        can_collect = False
+                        break
+                if can_collect:
+                    for t in teams:
+                        reward_history[t].append(team_rewards[t]/team_counts[t])
             else:
                 for k, v in rewards.items():
                     reward_history[k].append(v)
@@ -60,7 +72,7 @@ def get_result_data(fname, avg_prefixes=True, distribution_type='mean'):
 
 
 def simple_reward_viz(x_data, y_data, plot_title="None", xlabel='Episode', ylabel='Reward'):
-    plt.plot(x_data, y_data)
+    plt.plot(x_data, y_data, linewidth=3)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(plot_title)
@@ -82,6 +94,7 @@ def comparative_reward_viz(x_data, y_data, plot_title="None", xlabel='Red Reward
         ax.plot(t, t, linestyle='--', linewidth=2)
         ax.scatter(x_data[0], y_data[0], label='Episode 0')
         ax.scatter(x_data[-1], y_data[-1], label=f"Episode {len(x_data)}")
+        plt.legend()
 
     elif style == 'tight':
         ax.autoscale_view()
@@ -94,7 +107,6 @@ def comparative_reward_viz(x_data, y_data, plot_title="None", xlabel='Red Reward
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(plot_title)
-    plt.legend()
     plt.show()
 
 
@@ -115,10 +127,19 @@ def main():
     battle_selfplay = get_result_data("result_data/battle_selfplay/result.json")
     simple_reward_viz(list(range(len(battle_selfplay['all']))), battle_selfplay['all'])
 
-    # battle_shsh_blue = get_simple_data("result_data/battle_shared_shared/run-.-tag-ray_tune_policy_reward_mean_blue_shared.json")
-    # battle_shsh_red = get_simple_data("result_data/battle_shared_shared/run-.-tag-ray_tune_policy_reward_mean_red_shared.json")
-    #
-    # # simple_reward_viz(*battle_shsh_blue)
+    # AP shared shared plots
+    ap_shared_shared = get_result_data("result_data/ap_shared_shared/result.json")
+    simple_reward_viz(list(range(len(ap_shared_shared['prey']))), ap_shared_shared['prey'])
+    simple_reward_viz(list(range(len(ap_shared_shared['predator']))), ap_shared_shared['predator'])
+    comparative_reward_viz(ap_shared_shared['prey'], ap_shared_shared['predator'], xlabel='prey',
+                           ylabel='predator', style='tight')
+
+    # AP shared split plots
+    ap_shared_split = get_result_data("result_data/ap_shared_split/result.json")
+    simple_reward_viz(list(range(len(ap_shared_split['prey']))), ap_shared_split['prey'], plot_title='Avg Prey Reward')
+    simple_reward_viz(list(range(len(ap_shared_split['predator']))), ap_shared_split['predator'], plot_title='Avg Predator Reward')
+    comparative_reward_viz(ap_shared_split['prey'], ap_shared_split['predator'], xlabel='prey',
+                           ylabel='predator', style='full')
 
 
 if __name__ == '__main__':
