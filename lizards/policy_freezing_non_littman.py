@@ -52,9 +52,6 @@ def chk_time():
     return timestamp
 
 
-# testing_info = {}
-
-
 
 """ 
 Assumptions:
@@ -101,7 +98,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
 def BA_pol_mapping_fn(agent_id, episode, worker, **kwargs):
     return "red" if agent_id.startswith("red") else "blue"
 
-def BA_apt_1_30_PROTOTYPE(*args):
+def BA_apt_exp(*args):
 
     if gen_dynamic_info["test_mode"]: 
         gen_dynamic_info["num_iters"] = 12
@@ -198,4 +195,4 @@ if __name__ == "__main__":
     print(f"gen_dynamic_info is {gen_dynamic_info}")
 
 
-    BA_apt_1_30_PROTOTYPE()
+    BA_apt_exp()
