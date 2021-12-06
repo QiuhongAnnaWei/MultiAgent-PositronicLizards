@@ -269,9 +269,13 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
             batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
             single_action = batched_action[0]
             action = single_action
-        env.step(action)
-        s = env.state() # (map_size, map_size, 5)
+        try:
+            s = env.state() # (map_size, map_size, 5)
+        except:
+            print(f"At {i}: one team eliminated - env.agents = {env.agents}") 
+            break
         # out = False
+        env.step(action)
         if savefile:
             img2 = PIL.Image.fromarray(env.render(mode='rgb_array'))
             if img is None:
