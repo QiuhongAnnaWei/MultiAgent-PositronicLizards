@@ -69,6 +69,19 @@ def ray_experiment_BF_training_arch(*args):
         print(f"{key}: {rewards[key]}")
 
 
+def ray_BA_selfplay_evaluate(env_name = 'battle', gpu = False):
+    env_config = {'map_size': 30}
+    policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+    policy_fn = lambda *args, **kwargs: 'all'
+    trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    trainer = ppo.PPOTrainer(config=trainer_config)
+    checkpoint = 'logs/battle/PPO_battle_self-play_120-iters__75eeb/checkpoint_000120/checkpoint-120'
+    render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True, is_battle=True) 
+    rewards, rewards_log = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
+    print("\npolicy_evaluation_rewards = \n")
+    for key in rewards:
+        print(f"{key}: {rewards[key]}")
+
 def ray_experiment_BA_arch_traineval(env_name = 'battle', gpu = False, evaluate=True):
     # old arch by default
     env_config = {'map_size': 19}
@@ -215,6 +228,8 @@ def ray_BA_mixarch_evaluate(env_name = 'battle', gpu = False):
         f.write(json.dumps(rewards_log))
     print(f"\n{logname}")
 
+
+
 def ray_BA_split_evaluate(env_name = 'battle', gpu = False):
     timestamp = int(datetime.timestamp(datetime.now())) #%10000
     logname = f"logs/battle/evaluation/{timestamp}/{timestamp}.txt"
@@ -284,7 +299,6 @@ def ray_BA_random_split_evaluate(env_name = 'battle', gpu = False):
         f.write(json.dumps(rewards_log))
     print(f"\n{logname}")
 
-
 def ray_BA_mixarch_split_evaluate(env_name = 'battle', gpu = False):
     # log set up
     timestamp = int(datetime.timestamp(datetime.now())) #%10000
@@ -346,10 +360,13 @@ if __name__ == "__main__":
     # ray.init(num_gpus=1, local_mode=True)
     
     # ray_experiment_BF_training_arch()
+
+    ray_BA_selfplay_evaluate()
     # ray_experiment_BA_arch_traineval()
     # ray_experiment_BA_arch_traineval_pretrained()
     # ray_BA_random_evaluate()
     # ray_BA_mixarch_evaluate()
+
     # ray_BA_split_evaluate()
     # ray_BA_random_split_evaluate()
-    ray_BA_mixarch_split_evaluate()
+    # ray_BA_mixarch_split_evaluate()
