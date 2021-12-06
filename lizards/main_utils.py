@@ -150,8 +150,8 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     """
     Gets a config dictionary for a Ray Trainer
     :param env_name: the Ray-registered environment name (e.g. 'adversarial-pursuit')
-    :param policy_dict: policy_dict from get_policy_config
-    :param policy_fn: policy_fn from get_policy_config
+    :param policy_dict: policy_dict from get_policy_config ({policy_id: (None, obs_space, action_space, dict())})
+    :param policy_fn: policy_fn from get_policy_config (agent_id maps to policy_id)
     :param env_config: a dictionary of arguments for the environment (e.g. map_size=30)
     :param conv_filters: [optional] a list of convolutional filters (out_channels, kernel, stride)
     :param kwargs: any other keyword arguments you want to put into the trainer config dict
@@ -269,9 +269,13 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
             batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
             single_action = batched_action[0]
             action = single_action
-        env.step(action)
-        s = env.state() # (map_size, map_size, 5)
+        try:
+            s = env.state() # (map_size, map_size, 5)
+        except:
+            print(f"At {i}: one team eliminated - env.agents = {env.agents}") 
+            break
         # out = False
+        env.step(action)
         if savefile:
             img2 = PIL.Image.fromarray(env.render(mode='rgb_array'))
             if img is None:

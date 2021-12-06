@@ -137,6 +137,8 @@ def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_in
 
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
     checkpoint_path = trainer.save(str(log_dir)); print("checkpoint saved at", checkpoint_path)
+    
+    trainer.stop()
 
     save_results_dicts_pol_wts(results_dicts, policy_weights_for_iters, policy_ids, gen_dynamic_info)
     

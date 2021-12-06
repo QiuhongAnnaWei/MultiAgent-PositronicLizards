@@ -22,19 +22,18 @@ from ray.rllib.agents.ppo import PPOTrainer
 # from ray.rllib.policy.policy import PolicySpec
 from ray.tune import CLIReporter, register_env
 
-convs = {"adversarial-pursuit": [[13, 10, 1]],
-         "battle": [[21, 13, 1]],
-         "battlefield": [[21, 13, 1]],
-         "tiger-deer": [[9, 9, 1]],
-         "combined-arms": [[25, 13, 1]]}
-
-
 
 const_exp_info = {"help": "Non-Littman Battle experiment setup; *not* experimenting with split-share distinction here",
                   "env_name": "battle",
                   "env_fn": env_directory["battle"],
                   "map_size": 19,
-                  "policies": ("red", "blue")}
+                  "policies": ("red", "blue"),
+                  "convs": {"adversarial-pursuit": [[13, 10, 1]],
+                            "battle": [[21, 13, 1]],
+                            "battlefield": [[21, 13, 1]],
+                            "tiger-deer": [[9, 9, 1]],
+                            "combined-arms": [[25, 13, 1]]},
+                  "conv_activation": "relu"}
 
 
 gen_dynamic_info = {"timestamp": None,
@@ -51,9 +50,6 @@ def chk_time():
     timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
     gen_dynamic_info["timestamp"] = timestamp
     return timestamp
-
-
-# testing_info = {}
 
 
 
@@ -102,8 +98,7 @@ class APTCallback_BA_to_wrap(DefaultCallbacks):
 def BA_pol_mapping_fn(agent_id, episode, worker, **kwargs):
     return "red" if agent_id.startswith("red") else "blue"
 
-def BA_apt_1_30_PROTOTYPE(*args):
-
+def BA_apt_exp(*args):
 
     if gen_dynamic_info["test_mode"]: 
         gen_dynamic_info["num_iters"] = 12
@@ -135,7 +130,8 @@ def BA_apt_1_30_PROTOTYPE(*args):
 
         "env": env_name,
         "model": {
-            "conv_filters": convs[env_name]
+            "conv_filters": const_exp_info["convs"][env_name],
+            "conv_activation": const_exp_info["conv_activation"]
         },
         "env_config": env_config,
         "create_env_on_driver": True, # potentially disable this?
@@ -199,4 +195,4 @@ if __name__ == "__main__":
     print(f"gen_dynamic_info is {gen_dynamic_info}")
 
 
-    BA_apt_1_30_PROTOTYPE()
+    BA_apt_exp()
