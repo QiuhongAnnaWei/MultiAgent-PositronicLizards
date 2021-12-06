@@ -398,6 +398,7 @@ def ray_CA_generalized(map_size=16):
         print(f"\nStarting on training with team data combination idx {i}")
         ray_train_generic(**kwargs, end_render=True)
 
+
 def parse_args():
     env_abreviation_dict = {'BA': 'battle',
                             'AP': 'adversarial-pursuit',
