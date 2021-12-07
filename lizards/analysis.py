@@ -216,7 +216,7 @@ def main():
     battle_shared_split = get_all_result_data("result_data/battle_shared_split/result.json")
     main_plotting_fn(battle_shared_split['red'], battle_shared_split['blue'],
                      suptitle='Battle Env - Red:Split, Blue:Shared', dtsr=['mean'], start_offsets=(2, -1), end_offsets=(-17, -1),
-                     savename='plots/Battle-SpSp.png')
+                     savename='plots/Battle-ShSp.png')
 
     # Battle selfplay plots
     battle_selfplay = get_result_data("result_data/battle_selfplay/result.json")
@@ -234,8 +234,8 @@ def main():
     ap_shared_split = get_all_result_data("result_data/ap_shared_split/result.json")
     main_plotting_fn(ap_shared_split['predator'], ap_shared_split['prey'],
                      suptitle='Adversarial Pursuit - Predator:Split, Prey:Shared', start_offsets=(-50, -160),
-                     end_offsets=(-300, -170), team_1_name='Predator', team_2_name='Prey', dtsl=['mean'],
-                     savename='plots/AP-SpSp.png')
+                     end_offsets=(-300, -170), team_1_name='Predator', team_2_name='Prey',
+                     savename='plots/AP-ShSp.png')
 
 
 if __name__ == '__main__':
