@@ -274,6 +274,24 @@ def ray_BA_training_share_split_retooled():
                    '/checkpoint_000081/checkpoint-81',
         **kwargs)
 
+def ray_BA_training_share_randomized_retooled():
+    env_name = 'battle'
+    env_config = {'map_size': 19}
+    team_data = [TeamPolicyConfig('red', random_action_team=True),
+                 TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 200,
+        'log_intervals': 40,
+        'gpu': True
+    }
+
+    ray_train_generic(**kwargs, end_render=True)
 
 def ray_TD_training_share_split_retooled():
     env_config = {'map_size': 30}
@@ -320,6 +338,25 @@ def ray_AP_training_share_split_retooled():
     ray_viz_generic(
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_adversarial-pursuit_predator-split_120-iters__6cda8/checkpoint_000120/checkpoint-120',
         **kwargs)
+
+
+def ray_AP_training_share_randomized_retooled():
+    env_name = 'adversarial-pursuit'
+    env_config = {'map_size': 40}
+    team_data = [TeamPolicyConfig('predator', random_action_team=True), TeamPolicyConfig('prey')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+
+    ray_train_generic(**kwargs, end_render=True)
 
 
 def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=2):
@@ -543,6 +580,8 @@ def main():
     # ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
     # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()
+    ray_BA_training_share_randomized_retooled()
+    ray_AP_training_share_randomized_retooled()
     print("\nDONE")
 
 
