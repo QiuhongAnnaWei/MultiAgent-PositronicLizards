@@ -124,11 +124,10 @@ def BattleTrainerInfinite(*args, map_size=19, num_iters = 30, test = False):
     if test:
         tune.run(ppo.PPOTrainer, config = ray_trainer_config, keep_checkpoints_num=1, checkpoint_score_attr="accuracy", stop={"training_iteration": 1})
     else:
-        tune.run(ppo.PPOTrainer, config = ray_trainer_config, keep_checkpoints_num=1, checkpoint_score_attr="accuracy")
+        tune.run(ppo.PPOTrainer, config = ray_trainer_config, keep_checkpoints_num=1, checkpoint_score_attr="accuracy", stop={"training_iteration": 600})
 
     # save logged pol wts
     pd.DataFrame(policy_weights_for_iters).to_csv(gen_dyn_info_1inf["wts_log_path"])
-
 
 
     #trainer = ppo.PPOTrainer(config=ray_trainer_config)
