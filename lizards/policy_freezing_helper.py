@@ -40,20 +40,26 @@ def get_timestamp():
 # Training / logging related utils
 
 
-
-# TO DO: This has not been tested yet, and likely has bugs
-def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids: Iterable, gen_dynamic_info):
-
+def make_full_log_dir(gen_dynamic_info):
+    exp_id = gen_dynamic_info["exp_id"]
     timestamp, log_dir = gen_dynamic_info["timestamp"], gen_dynamic_info["log_dir"]
-
+    
     test_flag = "_TEST" if gen_dynamic_info["test_mode"] else ""
     r_num, b_num = gen_dynamic_info["r_num"], gen_dynamic_info["b_num"]
     num_iters = gen_dynamic_info["num_iters"]
     
     if r_num is None and b_num is None:
-        full_log_dir = log_dir.joinpath(f"{timestamp}_i{num_iters}_no_rb_diff{test_flag}")
+        full_log_dir = log_dir.joinpath(f"{exp_id}_{timestamp}_i{num_iters}_no_rb_diff{test_flag}")
     else:
-        full_log_dir = log_dir.joinpath(f"{timestamp}_i{num_iters}_r{r_num}_b{b_num}_{test_flag}")
+        full_log_dir = log_dir.joinpath(f"{exp_id}_{timestamp}_i{num_iters}_r{r_num}_b{b_num}_{test_flag}")
+
+    return full_log_dir
+    
+
+# TO DO: This has not been tested yet, and likely has bugs
+def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_iters: Iterable, policy_ids: Iterable, gen_dynamic_info):
+
+    full_log_dir = gen_dynamic_info["full_log_dir"]
     if not full_log_dir.is_dir(): full_log_dir.mkdir()
 
     def savepath(suffix): return full_log_dir.joinpath(suffix)
@@ -82,8 +88,8 @@ def save_results_dicts_pol_wts(results_dicts: List[Dict], policy_weights_for_ite
 def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_info):
     num_iters, log_intervals, log_dir = gen_dynamic_info["num_iters"], gen_dynamic_info["log_intervals"], gen_dynamic_info["log_dir"]
 
-    timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
-    if not log_dir.is_dir(): log_dir.mkdir()
+    full_log_dir = gen_dynamic_info["full_log_dir"]
+    if not full_log_dir.is_dir(): full_log_dir.mkdir()
 
     policy_ids = list(trainer.get_config()["multiagent"]["policies"].keys())
     policyset_to_start_with = gen_dynamic_info.get("policyset_to_start_with", None)
@@ -132,11 +138,11 @@ def train_for_pol_wt_freezing(trainer: Trainable, const_exp_info, gen_dynamic_in
         # TO DO: Chk log interval code
         if log_intervals is not None:
             if (i + 1) % log_intervals == 0:
-                checkpoint_path = trainer.save(str(log_dir))
+                checkpoint_path = trainer.save(str(full_log_dir))
                 print("checkpoint saved at", checkpoint_path)
 
     print(f"Full training took {(time.time() - true_start) / 60.0} min")
-    checkpoint_path = trainer.save(str(log_dir)); print("checkpoint saved at", checkpoint_path)
+    checkpoint_path = trainer.save(str(full_log_dir)); print("checkpoint saved at", checkpoint_path)
     
     trainer.stop()
 
