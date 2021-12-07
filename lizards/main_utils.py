@@ -8,6 +8,8 @@ from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, 
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 from ray.tune.logger import pretty_print
+from ray.rllib.policy.policy import PolicySpec
+from ray.rllib.examples.policy.random_policy import RandomPolicy
 from gym.spaces import Box
 import numpy as np
 # import pygame
@@ -135,13 +137,20 @@ def get_policy_config(action_space, obs_space, team_data):
         name = team.team_name
         method = team.method
         count = team.count
+
+        policy_dict_updates = dict()
         if method == 'shared':
-            policy_dict[name + "_shared"] = (None, obs_space, action_space, dict())
+            policy_dict_updates[name + "_shared"] = (None, obs_space, action_space, dict())
             policy_fn_dict[name] = name + "_shared"
         elif method == 'split':
             policy_fn_dict[name] = None
             for i in range(count):
-                policy_dict[f"{name}_{i}"] = (None, obs_space, action_space, dict())
+                policy_dict_updates[f"{name}_{i}"] = (None, obs_space, action_space, dict())
+        if team.random_action_team:
+            # Override all team-policies with random, untrainable ones.
+            for k in policy_dict_updates:
+                policy_dict_updates[k] = PolicySpec(policy_class=RandomPolicy)
+        policy_dict.update(policy_dict_updates)
 
     return policy_dict, policy_fn
 

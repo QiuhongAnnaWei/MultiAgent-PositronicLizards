@@ -41,16 +41,18 @@ env_spaces = {'adversarial-pursuit':
 
 
 class TeamPolicyConfig:
-    def __init__(self, team_name, method='shared', count=None):
+    def __init__(self, team_name, method='shared', count=None, random_action_team=False):
         """
         For specifying policy breakdowns for teams
         :param team_name: 'red', 'preditor', etc.
         :param method: 'shared': one policy shared for all agents starting with `team_name`, or 'split': one per agent
         :param count: (not required if method='shared') number of agents on team
+        :param random_action_team: a special boolean flag that makes this instance a dummy-team that acts randomly, and will never learn.
         """
         self.team_name = team_name
         self.method = method
         self.count = count
+        self.random_action_team = random_action_team
 
     def for_filename(self):
         if self.method == 'split':
