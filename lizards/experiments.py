@@ -169,7 +169,7 @@ def ray_train_generic(*args, end_render=True, savefile=False, policy_log_str=Non
     return checkpoint, trainer
 
 
-def ray_viz_generic(checkpoint, max_iter=10000, savefile=False, **kwargs):
+def ray_viz_generic(checkpoint, max_iter=20000, savefile=False, **kwargs):
     trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
                                         kwargs['env_config'],
                                         gpu=kwargs['gpu'])
@@ -298,7 +298,7 @@ def ray_TD_training_share_split_retooled():
 
 def ray_AP_training_share_split_retooled():
     env_name = 'adversarial-pursuit'
-    env_config = {'map_size': 40}
+    env_config = {'map_size': 40, 'max_cycles': 50000}
     predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
     team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
     # team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
@@ -315,7 +315,7 @@ def ray_AP_training_share_split_retooled():
     }
 
     # ray_train_generic(**kwargs, end_render=True)
-    ray_viz_generic(
+    ray_viz_generic(savefile=True,
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_adversarial-pursuit_predator-split_120-iters__6cda8/checkpoint_000120/checkpoint-120',
         **kwargs)
 
@@ -540,7 +540,7 @@ def main():
     # ray_BF_training_share_split_retooled()
     # ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
     # ray_BA_training_share_split_retooled()
-    # ray_AP_training_share_split_retooled()
+    ray_AP_training_share_split_retooled()
     print("\nDONE")
 
 
