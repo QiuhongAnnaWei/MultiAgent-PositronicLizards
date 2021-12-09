@@ -245,36 +245,36 @@ def right_plotting_fn(team_1, team_2, dtsl=None, dtsr=None, suptitle='None', sta
 
 
 def main():
-    # # Battle shared shared plots
-    # battle_shared_shared = get_all_result_data("result_data/battle_shared_shared/result.json")
-    # main_plotting_fn(battle_shared_shared['red'], battle_shared_shared['blue'],
-    #                  suptitle='Battle Env - Red:Shared, Blue:Shared', start_offsets=(2, -1), end_offsets=(-17, -1),
-    #                  savename='plots/Battle-ShSh.png', same_fig=False)
-    #
-    # # Battle shared split plots
-    # battle_shared_split = get_all_result_data("result_data/battle_shared_split/result.json")
-    # main_plotting_fn(battle_shared_split['red'], battle_shared_split['blue'],
-    #                  suptitle='Battle Env - Red:Split, Blue:Shared', start_offsets=(2, -1), end_offsets=(-17, -1),
-    #                  savename='plots/Battle-ShSp.png', same_fig=False)
+    # Battle shared shared plots
+    battle_shared_shared = get_all_result_data("result_data/battle_shared_shared/result.json")
+    main_plotting_fn(battle_shared_shared['red'], battle_shared_shared['blue'],
+                     suptitle='Battle Env - Red:Shared, Blue:Shared', start_offsets=(2, -1), end_offsets=(-17, -1),
+                     savename='plots/Battle-ShSh.png', same_fig=False)
+
+    # Battle shared split plots
+    battle_shared_split = get_all_result_data("result_data/battle_shared_split/result.json")
+    main_plotting_fn(battle_shared_split['red'], battle_shared_split['blue'],
+                     suptitle='Battle Env - Red:Split, Blue:Shared', start_offsets=(2, -1), end_offsets=(-17, -1),
+                     savename='plots/Battle-ShSp.png', same_fig=False)
 
     # # Battle selfplay plots
     # battle_selfplay = get_result_data("result_data/battle_selfplay/result.json")
     # simple_reward_viz(list(range(len(battle_selfplay['all']))), battle_selfplay['all'],
     #                   plot_title='Battle Env - Self-Play')
 
-    # AP shared shared plots
-    ap_shared_shared = get_all_result_data("result_data/ap_shared_shared/result.json")
-    main_plotting_fn(ap_shared_shared['predator'], ap_shared_shared['prey'],
-                     suptitle='Adversarial Pursuit - Predator:Shared, Prey:Shared', start_offsets=(2, 2),
-                     end_offsets=(-40, -5), team_1_name='Predator', team_2_name='Prey', dtsl=['max', 'mean'], dtsr=['max', 'mean'],
-                     savename='plots/AP-ShSh.png', same_fig=False)
-
-    # AP shared split plots
-    ap_shared_split = get_all_result_data("result_data/ap_shared_split/result.json")
-    main_plotting_fn(ap_shared_split['predator'], ap_shared_split['prey'],
-                     suptitle='Adversarial Pursuit - Predator:Split, Prey:Shared', start_offsets=(-50, -160),
-                     end_offsets=(-300, -170), team_1_name='Predator', team_2_name='Prey', dtsl=['max', 'mean'], dtsr=['max', 'mean'],
-                     savename='plots/AP-ShSp.png', same_fig=False)
+    # # AP shared shared plots
+    # ap_shared_shared = get_all_result_data("result_data/ap_shared_shared/result.json")
+    # main_plotting_fn(ap_shared_shared['predator'], ap_shared_shared['prey'],
+    #                  suptitle='Adversarial Pursuit - Predator:Shared, Prey:Shared', start_offsets=(2, 2),
+    #                  end_offsets=(-40, -5), team_1_name='Predator', team_2_name='Prey', dtsl=['max', 'mean'], dtsr=['max', 'mean'],
+    #                  savename='plots/AP-ShSh.png', same_fig=False)
+    #
+    # # AP shared split plots
+    # ap_shared_split = get_all_result_data("result_data/ap_shared_split/result.json")
+    # main_plotting_fn(ap_shared_split['predator'], ap_shared_split['prey'],
+    #                  suptitle='Adversarial Pursuit - Predator:Split, Prey:Shared', start_offsets=(-50, -160),
+    #                  end_offsets=(-300, -170), team_1_name='Predator', team_2_name='Prey', dtsl=['max', 'mean'], dtsr=['max', 'mean'],
+    #                  savename='plots/AP-ShSp.png', same_fig=False)
 
 
 if __name__ == '__main__':

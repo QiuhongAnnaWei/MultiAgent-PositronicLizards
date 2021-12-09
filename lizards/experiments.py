@@ -159,7 +159,7 @@ def ray_train_generic(*args, end_render=True, savefile=False, policy_log_str=Non
     if policy_log_str is None:
         policy_log_str = "".join([p.for_filename() for p in kwargs['team_data']])
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters__{uuid.uuid4().hex[:5]}")
+                           f"logs/PPO_{kwargs['env_name']}{policy_log_str}_{kwargs['train_iters']}-iters_ms{kwargs['env_config']['map_size']}_{uuid.uuid4().hex[:5]}")
     print(f"\n(from ray_train_generic) `log_dir` has been set to {log_dir}")
 
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
@@ -249,7 +249,9 @@ def ray_BA_training_share_pretrained(checkpoint='/logs/pretrained/PPO_battle_100
 
 def ray_BA_training_share_split_retooled():
     env_name = 'battle'
-    env_config = {'map_size': 19}
+    env_config = {'map_size': 30}
+    # policy_dict = {'all': (None, env_spaces['battle']['obs_space'], env_spaces['battle']['action_space'], dict())}
+    # policy_fn = lambda *args, **kwargs: 'all'
     counts = get_num_agents(env_directory[env_name], env_config)
     team_data = [TeamPolicyConfig('red', method='split', count=counts['red']),
                  TeamPolicyConfig('blue')]
@@ -257,19 +259,18 @@ def ray_BA_training_share_split_retooled():
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
         'env_name': env_name,
-        'team_data': team_data,
         'env_config': env_config,
+        'team_data': team_data,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 200,
-        'log_intervals': 40,
+        'train_iters': 120,
+        'log_intervals': 20,
         'gpu': True
     }
 
     # ray_train_generic(**kwargs, end_render=True)
-    ray_viz_generic(
-        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_red-split_100'
-                   '/checkpoint_000081/checkpoint-81',
+    ray_viz_generic(savefile=True,
+        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_red-split_120-iters__3914d/checkpoint_000120/checkpoint-120',
         **kwargs)
 
 
@@ -298,10 +299,10 @@ def ray_TD_training_share_split_retooled():
 
 def ray_AP_training_share_split_retooled():
     env_name = 'adversarial-pursuit'
-    env_config = {'map_size': 40, 'max_cycles': 50000}
-    predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
-    team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
-    # team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
+    env_config = {'map_size': 19}
+    # predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
+    # team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
+    team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
         'env_name': env_name,
@@ -316,7 +317,7 @@ def ray_AP_training_share_split_retooled():
 
     # ray_train_generic(**kwargs, end_render=True)
     ray_viz_generic(savefile=True,
-        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_adversarial-pursuit_predator-split_120-iters__6cda8/checkpoint_000120/checkpoint-120',
+        checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_adversarial-pursuit_120-iters_ms19_33090/checkpoint_000120/checkpoint-120',
         **kwargs)
 
 
@@ -431,7 +432,7 @@ def parse_args():
 
 def all_experiment_1():
     # Self-play on Battle
-    env_config = {'map_size': 30}
+    env_config = {'map_size': 19}
     policy_dict = {'all': (None, env_spaces['battle']['obs_space'], env_spaces['battle']['action_space'], dict())}
     policy_fn = lambda *args, **kwargs: 'all'
     kwargs = {
@@ -443,48 +444,48 @@ def all_experiment_1():
         'log_intervals': 20,
         'gpu': True
     }
-    ray_train_generic(policy_log_str="self-play", **kwargs)
+    ray_train_generic(policy_log_str="self-play-ms19", **kwargs)
 
-    # Shared-split Symmetric battle
-    env_name = 'battle'
-    env_config = {'map_size': 30}
-    counts = get_num_agents(env_directory[env_name], env_config)
-    team_data = [TeamPolicyConfig('red', method='split', count=counts['red']),
-                 TeamPolicyConfig('blue')]
-    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
-    kwargs = {
-        'env_name': env_name,
-        'team_data': team_data,
-        'env_config': env_config,
-        'policy_dict': policy_dict,
-        'policy_fn': policy_fn,
-        'train_iters': 120,
-        'log_intervals': 20,
-        'gpu': True
-    }
-    ray_train_generic(**kwargs, end_render=True)
-
-    # Shared-shared Symmetric battle
-    env_name = 'battle'
-    env_config = {'map_size': 30}
-    team_data = [TeamPolicyConfig('red'),
-                 TeamPolicyConfig('blue')]
-    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
-    kwargs = {
-        'env_name': env_name,
-        'team_data': team_data,
-        'env_config': env_config,
-        'policy_dict': policy_dict,
-        'policy_fn': policy_fn,
-        'train_iters': 120,
-        'log_intervals': 20,
-        'gpu': True
-    }
-    ray_train_generic(**kwargs, end_render=True)
+    # # Shared-split Symmetric battle
+    # env_name = 'battle'
+    # env_config = {'map_size': 30}
+    # counts = get_num_agents(env_directory[env_name], env_config)
+    # team_data = [TeamPolicyConfig('red', method='split', count=counts['red']),
+    #              TeamPolicyConfig('blue')]
+    # policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    # kwargs = {
+    #     'env_name': env_name,
+    #     'team_data': team_data,
+    #     'env_config': env_config,
+    #     'policy_dict': policy_dict,
+    #     'policy_fn': policy_fn,
+    #     'train_iters': 120,
+    #     'log_intervals': 20,
+    #     'gpu': True
+    # }
+    # ray_train_generic(**kwargs, end_render=True)
+    #
+    # # Shared-shared Symmetric battle
+    # env_name = 'battle'
+    # env_config = {'map_size': 30}
+    # team_data = [TeamPolicyConfig('red'),
+    #              TeamPolicyConfig('blue')]
+    # policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    # kwargs = {
+    #     'env_name': env_name,
+    #     'team_data': team_data,
+    #     'env_config': env_config,
+    #     'policy_dict': policy_dict,
+    #     'policy_fn': policy_fn,
+    #     'train_iters': 120,
+    #     'log_intervals': 20,
+    #     'gpu': True
+    # }
+    # ray_train_generic(**kwargs, end_render=True)
 
     # Shared-shared Asymmetric AP
     env_name = 'adversarial-pursuit'
-    env_config = {'map_size': 40}
+    env_config = {'map_size': 19}
     team_data = [TeamPolicyConfig('predator'), TeamPolicyConfig('prey')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
@@ -499,13 +500,14 @@ def all_experiment_1():
     }
     ray_train_generic(**kwargs, end_render=True)
 
-    # Shared-shared Asymmetric TD
-    env_config = {'map_size': 30}
-    # tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
-    team_data = [TeamPolicyConfig('tiger'), TeamPolicyConfig('deer')]
-    policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
+    # Shared-split Asymmetric AP
+    env_name = 'adversarial-pursuit'
+    env_config = {'map_size': 19}
+    predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
+    team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
-        'env_name': 'tiger-deer',
+        'env_name': env_name,
         'team_data': team_data,
         'env_config': env_config,
         'policy_dict': policy_dict,
@@ -514,7 +516,24 @@ def all_experiment_1():
         'log_intervals': 20,
         'gpu': True
     }
-    ray_train_generic(**kwargs)
+    ray_train_generic(**kwargs, end_render=True)
+
+    # # Shared-shared Asymmetric TD
+    # env_config = {'map_size': 19}
+    # # tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
+    # team_data = [TeamPolicyConfig('tiger'), TeamPolicyConfig('deer')]
+    # policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
+    # kwargs = {
+    #     'env_name': 'tiger-deer',
+    #     'team_data': team_data,
+    #     'env_config': env_config,
+    #     'policy_dict': policy_dict,
+    #     'policy_fn': policy_fn,
+    #     'train_iters': 120,
+    #     'log_intervals': 20,
+    #     'gpu': True
+    # }
+    # ray_train_generic(**kwargs)
 
     # Shared-shared Symmetric CA
     # ray_CA_generalized()
@@ -539,8 +558,8 @@ def main():
     # ray_AP_training_share_split_retooled()  # Run this after Local (2) finishes.
     # ray_BF_training_share_split_retooled()
     # ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
-    # ray_BA_training_share_split_retooled()
-    ray_AP_training_share_split_retooled()
+    ray_BA_training_share_split_retooled()
+    # ray_AP_training_share_split_retooled()
     print("\nDONE")
 
 
