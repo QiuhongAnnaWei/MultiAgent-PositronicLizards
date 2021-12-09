@@ -41,16 +41,18 @@ env_spaces = {'adversarial-pursuit':
 
 
 class TeamPolicyConfig:
-    def __init__(self, team_name, method='shared', count=None):
+    def __init__(self, team_name, method='shared', count=None, random_action_team=False):
         """
         For specifying policy breakdowns for teams
         :param team_name: 'red', 'preditor', etc.
         :param method: 'shared': one policy shared for all agents starting with `team_name`, or 'split': one per agent
         :param count: (not required if method='shared') number of agents on team
+        :param random_action_team: a special boolean flag that makes this instance a dummy-team that acts randomly, and will never learn.
         """
         self.team_name = team_name
         self.method = method
         self.count = count
+        self.random_action_team = random_action_team
 
     def for_filename(self):
         if self.method == 'split':
@@ -273,6 +275,24 @@ def ray_BA_training_share_split_retooled():
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_red-split_120-iters__3914d/checkpoint_000120/checkpoint-120',
         **kwargs)
 
+def ray_BA_training_share_randomized_retooled():
+    env_name = 'battle'
+    env_config = {'map_size': 19}
+    team_data = [TeamPolicyConfig('red', random_action_team=True),
+                 TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 200,
+        'log_intervals': 40,
+        'gpu': False
+    }
+
+    ray_train_generic(**kwargs, end_render=True)
 
 def ray_TD_training_share_split_retooled():
     env_config = {'map_size': 30}
@@ -319,6 +339,25 @@ def ray_AP_training_share_split_retooled():
     ray_viz_generic(savefile=True,
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_adversarial-pursuit_120-iters_ms19_33090/checkpoint_000120/checkpoint-120',
         **kwargs)
+
+
+def ray_AP_training_share_randomized_retooled():
+    env_name = 'adversarial-pursuit'
+    env_config = {'map_size': 40}
+    team_data = [TeamPolicyConfig('predator', random_action_team=True), TeamPolicyConfig('prey')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    kwargs = {
+        'env_name': env_name,
+        'team_data': team_data,
+        'env_config': env_config,
+        'policy_dict': policy_dict,
+        'policy_fn': policy_fn,
+        'train_iters': 120,
+        'log_intervals': 20,
+        'gpu': True
+    }
+
+    ray_train_generic(**kwargs, end_render=True)
 
 
 def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=2):
@@ -558,8 +597,14 @@ def main():
     # ray_AP_training_share_split_retooled()  # Run this after Local (2) finishes.
     # ray_BF_training_share_split_retooled()
     # ray_BA_training_share_pretrained(checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_100-iters__cad08/checkpoint_000100/checkpoint-100')
-    ray_BA_training_share_split_retooled()
+    # ray_BA_training_share_split_retooled()
     # ray_AP_training_share_split_retooled()
+    # ray_BA_training_share_split_retooled()
+    # ray_AP_training_share_split_retooled()
+
+    # Randomized experiments
+    ray_BA_training_share_randomized_retooled()
+    ray_AP_training_share_randomized_retooled()
     print("\nDONE")
 
 
