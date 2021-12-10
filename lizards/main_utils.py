@@ -272,7 +272,7 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         try:
             s = env.state() # (map_size, map_size, 5)
         except:
-            print(f"At {i}: one team eliminated - env.agents = {env.agents}") 
+            log(f"{logname}.txt", f"\nAt {i}: one team eliminated - env.agents = {env.agents}") 
             break
         # out = False
         env.step(action)
@@ -283,10 +283,10 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
                 img = np.zeros((width, height))
             if np.array_equal(np.array(img), np.array(img2)) == False:
                 img = img2.copy()
-                ImageDraw.Draw(img2).text( (2, height-10), f"iter={i}",  (0, 0, 0))
+                ImageDraw.Draw(img2).text( (2, height-10), f"iter={i}", (0,0,0))
                 if is_battle:
-                    ImageDraw.Draw(img2).text( (2, 13), f"HP={str(round((s[:,:,2]).sum(), 2))}",  (0, 0, 0)) 
-                    ImageDraw.Draw(img2).text( (width-55, 13), f"HP={str(round((s[:,:,4]).sum(), 2))}",  (0, 0, 0)) # "{:.4f}".format()
+                    ImageDraw.Draw(img2).text( (2, 13), f"HP={str(round((s[:,:,2]).sum(), 2))}",  (0,0,0)) 
+                    ImageDraw.Draw(img2).text( (width-55, 13), f"HP={str(round((s[:,:,4]).sum(), 2))}",  (0,0,0)) # "{:.4f}".format()
                 diff_frame_list.append(img2)
         else:
             pass
