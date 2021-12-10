@@ -206,11 +206,11 @@ def BA_arch_traineval(env_name = 'battle', gpu = False, evaluate=True):
     for key in rewards:
         print(f"{key}: {rewards[key]}")
 
-def BA_arch_traineval_pretrained(env_name = 'battle', gpu = False, evaluate=True):
-    pt_ckpt = 'logs/PPO_battle_oldarch__ms30_baed4/checkpoint_000020/checkpoint-20'
-    pt_team = "red_shared"
-    env_config = {'map_size': 30}
-    train_iters = 200
+def BA_arch_traineval_pretrained(env_name = 'battle', gpu = False, evaluate=False):
+    pt_ckpt = 'logs/battle/PPO_battle_oldarch__ms19_cad08/checkpoint_000040/checkpoint-40' # 'logs/PPO_battle_oldarch__ms30_baed4/checkpoint_000020/checkpoint-20'
+    pt_team = "blue_shared"
+    env_config = {'map_size': 19}
+    train_iters = 120
     log_intervals = 20
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
@@ -228,7 +228,7 @@ def BA_arch_traineval_pretrained(env_name = 'battle', gpu = False, evaluate=True
         trainer.get_policy(pt_team).set_weights(pt_weights)
 
         policy_log_str = "".join([p.for_filename() for p in team_data])
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),f"logs/PPO_{env_name}{policy_log_str}_pretrained_{train_iters}-iters__{uuid.uuid4().hex[:5]}")
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),f"logs/PPO_{env_name}{policy_log_str}_19pretrained(cad08)_{train_iters}-iters__{uuid.uuid4().hex[:5]}")
         checkpoint = train_ray_trainer(trainer, num_iters=train_iters, log_intervals=log_intervals, log_dir=log_dir,
                         render=True, env=battle_v3, env_config=env_config, policy_fn=policy_fn, max_render_iter=10000, is_battle=True)
     rewards, rewards_log = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
@@ -468,8 +468,8 @@ if __name__ == "__main__":
     # BA_selfplay_random_evaluate()
     # BA_selfplay_mix_evaluate()
 
-    BA_arch_traineval()
-    # BA_arch_traineval_pretrained()
+    # BA_arch_traineval()
+    BA_arch_traineval_pretrained()
     # BA_random_evaluate()
     # BA_mixarch_evaluate()
 
