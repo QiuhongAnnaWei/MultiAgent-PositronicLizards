@@ -287,7 +287,7 @@ def ray_BA_training_share_randomized_retooled():
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 200,
+        'train_iters': 120,
         'log_intervals': 40,
         'gpu': False
     }
