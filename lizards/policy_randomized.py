@@ -21,9 +21,9 @@ def BattleTrainerRandom(*args, map_size=19, num_iters = 120):
     """
     env_name = "battle"
 
-    training_setup = {"num_iters": num_iters, 
-                     "log_intervals": 20,
-                     "log_dir": 'logs/BA_randomized'}
+    # training_setup = {"num_iters": num_iters, 
+    #                  "log_intervals": 20,
+    #                  "log_dir": 'logs/BA_randomized'}
 
     env_config = {'map_size': map_size} 
     action_space, obs_space = env_spaces[env_name]["action_space"], env_spaces[env_name]["obs_space"]
@@ -48,8 +48,8 @@ def BattleTrainerRandom(*args, map_size=19, num_iters = 120):
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
     }
 
-    ray_trainer_config["train_batch_size"] = 2000
-    tune.run(ppo.PPOTrainer, config = ray_trainer_config)
+    # ray_trainer_config["train_batch_size"] = 2000
+    tune.run(ppo.PPOTrainer, name="red_train_against_blue_rand_120iters_mapsz19_battle", keep_checkpoints_num=3, config = ray_trainer_config)
 
 
 if __name__ == "__main__":
