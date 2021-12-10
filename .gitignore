@@ -1,6 +1,7 @@
-*/.DS_Store
+**/.DS_Store
 .idea/
 venv/
 lizard-env/
 logs/
 **/__pycache__/**
+__pycache__/

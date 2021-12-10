@@ -32,9 +32,7 @@ const_exp_info = {"help": "Non-Littman Battle experiment setup; *not* experiment
                             "battle": [[21, 13, 1]],
                             "battlefield": [[21, 13, 1]],
                             "tiger-deer": [[9, 9, 1]],
-                            "combined-arms": [[25, 13, 1]]},
-                  "conv_activation": "relu"}
-
+                            "combined-arms": [[25, 13, 1]]}}
 
 gen_dynamic_info = {"timestamp": None,
                     "r_num": None,
@@ -43,10 +41,11 @@ gen_dynamic_info = {"timestamp": None,
                     "log_dir": Path("./logs/pol_freezing"),
                     "test_mode": True,
                     "num_iters": None,
-                    "no_alt_pfreeze": False}
+                    "no_alt_pfreeze": False,
+                    "exp_id": ""}
 
 
-def chk_time():
+def chk_timestamp_if_avail_else_get_it():
     timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
     gen_dynamic_info["timestamp"] = timestamp
     return timestamp
@@ -100,11 +99,7 @@ def BA_pol_mapping_fn(agent_id, episode, worker, **kwargs):
 
 def BA_apt_exp(*args):
 
-    if gen_dynamic_info["test_mode"]: 
-        gen_dynamic_info["num_iters"] = 12
-        gen_dynamic_info["log_intervals"] = None
-
-    timestamp = gen_dynamic_info["timestamp"] if gen_dynamic_info["timestamp"] is not None else get_timestamp()
+    timestamp = chk_timestamp_if_avail_else_get_it()
 
     env_name = const_exp_info["env_name"]
     env_config = {'map_size': const_exp_info["map_size"]} 
@@ -131,7 +126,7 @@ def BA_apt_exp(*args):
         "env": env_name,
         "model": {
             "conv_filters": const_exp_info["convs"][env_name],
-            "conv_activation": const_exp_info["conv_activation"]
+            # "conv_activation": const_exp_info["conv_activation"] # doing a quick run tt uses exactl ysame conv info as Pavlo did
         },
         "env_config": env_config,
         "create_env_on_driver": True, # potentially disable this?
@@ -154,6 +149,9 @@ def BA_apt_exp(*args):
 def parse_args():
     parser = argparse.ArgumentParser()
     # parser.add_argument('experiment', help="train, peek")
+    parser.add_argument('--exp-id', dest='exp_id', type=str, default="")
+    parser.add_argument('--use-relu', dest='use_relu', default=False, action='store_true')
+
     parser.add_argument('--test', dest='test_mode', default=False, action='store_true')
     parser.add_argument('--no-alt-pfreeze', dest='no_alt_pfreeze', default=False, action='store_true')
     
@@ -191,6 +189,15 @@ if __name__ == "__main__":
     else:
         gen_dynamic_info["policyset_to_start_with"] = None
 
+    gen_dynamic_info["exp_id"] = args.exp_id
+    gen_dynamic_info["full_log_dir"] = make_full_log_dir(gen_dynamic_info)
+
+    if gen_dynamic_info["test_mode"]: 
+        gen_dynamic_info["num_iters"] = 12
+        gen_dynamic_info["log_intervals"] = None
+
+    if args.use_relu:
+        const_exp_info["conv_activation"] = "relu"
 
     print(f"gen_dynamic_info is {gen_dynamic_info}")
 

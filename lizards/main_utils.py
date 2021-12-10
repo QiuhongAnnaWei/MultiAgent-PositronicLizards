@@ -8,6 +8,8 @@ from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, 
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 from ray.tune.logger import pretty_print
+from ray.rllib.policy.policy import PolicySpec
+from ray.rllib.examples.policy.random_policy import RandomPolicy
 from gym.spaces import Box
 import numpy as np
 # import pygame
@@ -135,13 +137,20 @@ def get_policy_config(action_space, obs_space, team_data):
         name = team.team_name
         method = team.method
         count = team.count
+
+        policy_dict_updates = dict()
         if method == 'shared':
-            policy_dict[name + "_shared"] = (None, obs_space, action_space, dict())
+            policy_dict_updates[name + "_shared"] = (None, obs_space, action_space, dict())
             policy_fn_dict[name] = name + "_shared"
         elif method == 'split':
             policy_fn_dict[name] = None
             for i in range(count):
-                policy_dict[f"{name}_{i}"] = (None, obs_space, action_space, dict())
+                policy_dict_updates[f"{name}_{i}"] = (None, obs_space, action_space, dict())
+        if team.random_action_team:
+            # Override all team-policies with random, untrainable ones.
+            for k in policy_dict_updates:
+                policy_dict_updates[k] = PolicySpec(policy_class=RandomPolicy)
+        policy_dict.update(policy_dict_updates)
 
     return policy_dict, policy_fn
 
@@ -177,6 +186,14 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         "env_config": env_config,
         "rollout_fragment_length": 500
     }
+
+    # Train policies that aren't RandomPolicy instances:
+    policies_to_train = []
+    for policy_name, p in policy_dict.items():
+        if isinstance(p, PolicySpec) and p[0] == RandomPolicy:
+           continue
+        policies_to_train.append(policy_name)
+    trainer_config["multiagent"]["policies_to_train"] = policies_to_train
 
     if create_env_on_driver:
         trainer_config["create_env_on_driver"] = True
