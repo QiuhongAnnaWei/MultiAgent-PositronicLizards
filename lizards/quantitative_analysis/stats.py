@@ -8,7 +8,7 @@ import pandas as pd
 from pathlib import Path
 
 
-def get_agent_attacks(checkpoint_path, trainer, env, env_config, policy_fn, max_iter=2 ** 8, is_battle=True, log_dir = None, save_df = True):
+def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn, max_iter=2 ** 8, is_battle=True, log_dir = None, save_df = True):
     if checkpoint_path:
         trainer.restore(checkpoint_path)
 
@@ -65,8 +65,8 @@ def get_agent_attacks(checkpoint_path, trainer, env, env_config, policy_fn, max_
     attacksDf.index.name = "Timesteps"
 
     if save_df:
-        df_csv_savepath = joinpath
-        attacksDf.to_csv(log_dir.joinpath("attacks_data.csv"))
+        df_csv_savepath = log_dir.joinpath("attacks_data.csv")
+        attacksDf.to_csv(df_csv_savepath)
         print(f"attacks df saved at {df_csv_savepath}")
     # log(f"{log_dir}.txt", f"attacks per agent {attacksPerAgent}") 
     return attacksPerAgent, attacksTotal, attacksPerTeam, attacksDf

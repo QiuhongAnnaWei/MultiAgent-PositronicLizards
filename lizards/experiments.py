@@ -127,9 +127,10 @@ def ray_experiment_BA_visualize(*args, gpu=True):
         # print(rewards)
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
-def get_stats_BA(*args, gpu = True):
+def get_stats_BA(*args, log_dir=None, gpu = False, checkpoint_path=None):
     # Gets the stats for Battle from a checkpoint including the number of attacks.
 
+    # 1. Init env
     env_config = {"map_size": 19}
     red_count = get_num_agents(battle_v3, env_config)['red']
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
@@ -138,12 +139,13 @@ def get_stats_BA(*args, gpu = True):
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
     trainer = ppo.PPOTrainer(config=trainer_config)
 
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/2c-exp')
     # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
-    checkpoint = log_dir + '/checkpoint_000020/checkpoint-20'
-    if checkpoint:
-        #print(get_agent_attacks(checkpoint, trainer, battle_v3, env_config, policy_fn))
-        pass
+    # hard_coded_checkpoint = log_dir + '/checkpoint_000020/checkpoint-20'
+    
+    # 2. Run eval and collect stats
+    if checkpoint_path:
+        print(collect_stats_from_eval(checkpoint_path, trainer, battle_v3, env_config, policy_fn))
+        # pass
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
@@ -600,9 +602,11 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    # get_stats_BA(gpu=False)
-    ray_BA_training_share_randomized_retooled(test_mode=False)
-    print("Done with BA exp!")
+    exp2c_log_dir =  os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/exp_2c')
+    slurm_sample_checkpoint = "/users/yh31/scratch/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/pretrained_checkpoint_000200/checkpoint-200"
+    get_stats_BA(gpu=False, log_dir = exp2c_log_dir, checkpoint_path=slurm_sample_checkpoint)
+    # ray_BA_training_share_randomized_retooled(test_mode=False)
+    # print("Done with BA exp!")
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
