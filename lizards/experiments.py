@@ -1,6 +1,7 @@
 import os
 
 from main_utils import *
+from quantitative_analysis.stats import *
 # from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3, combined_arms_v5
 import ray.rllib.agents.ppo as ppo
@@ -126,6 +127,23 @@ def ray_experiment_BA_visualize(*args, gpu=True):
         # print(rewards)
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
+def get_stats_BA(*args, gpu = True):
+    # Gets the stats for Battle from a checkpoint including the number of attacks.
+
+    env_config = {"map_size": 19}
+    red_count = get_num_agents(battle_v3, env_config)['red']
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
+    trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
+    trainer = ppo.PPOTrainer(config=trainer_config)
+
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/2c-exp')
+    # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
+    checkpoint = log_dir + '/checkpoint_000020/checkpoint-20'
+    if checkpoint:
+        #print(get_agent_attacks(checkpoint, trainer, battle_v3, env_config, policy_fn))
+        pass
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
@@ -543,40 +561,6 @@ def all_experiment_1():
     env_name = 'adversarial-pursuit'
     env_config = {'map_size': 19}
     predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
-    team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
-    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
-    kwargs = {
-        'env_name': env_name,
-        'team_data': team_data,
-        'env_config': env_config,
-        'policy_dict': policy_dict,
-        'policy_fn': policy_fn,
-        'train_iters': 120,
-        'log_intervals': 20,
-        'gpu': True
-    }
-    ray_train_generic(**kwargs, end_render=True)
-
-    # # Shared-shared Asymmetric TD
-    # env_config = {'map_size': 19}
-    # # tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
-    # team_data = [TeamPolicyConfig('tiger'), TeamPolicyConfig('deer')]
-    # policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
-    # kwargs = {
-    #     'env_name': 'tiger-deer',
-    #     'team_data': team_data,
-    #     'env_config': env_config,
-    #     'policy_dict': policy_dict,
-    #     'policy_fn': policy_fn,
-    #     'train_iters': 120,
-    #     'log_intervals': 20,
-    #     'gpu': True
-    # }
-    # ray_train_generic(**kwargs)
-
-    # Shared-shared Symmetric CA
-    # ray_CA_generalized()
-
 
 def main():
     # kwargs = parse_args()
@@ -603,9 +587,12 @@ def main():
     # ray_AP_training_share_split_retooled()
 
     # Randomized experiments
-    ray_BA_training_share_randomized_retooled()
-    ray_AP_training_share_randomized_retooled()
-    print("\nDONE")
+    #ray_BA_training_share_randomized_retooled(test_mode=False)
+    #print("Done with BA exp!")
+    # ray_AP_training_share_randomized_retooled()
+    # print("\nDONE")
+
+    get_stats_BA(gpu=False)
 
 
 if __name__ == "__main__":
