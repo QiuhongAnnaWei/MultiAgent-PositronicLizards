@@ -155,7 +155,22 @@ def get_policy_config(action_space, obs_space, team_data):
     return policy_dict, policy_fn
 
 
-def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filters=None, gpu=True, create_env_on_driver=False, **kwargs):
+
+def get_old_convs():
+    convs = {"adversarial-pursuit": [[13, 10, 1]],
+             "battle": [[21, 13, 1]],
+             "battlefield": [[21, 13, 1]],
+             "tiger-deer": [[9, 9, 1]],
+             "combined-arms": [[25, 13, 1]]}
+    return convs
+
+def get_new_convs():
+    convs = get_old_convs()
+    conv_activation = "relu" #  "tanh", "relu", "swish" (or "silu")
+    return convs, conv_activation
+
+
+def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filters=None, gpu=True, create_env_on_driver=False, num_workers=1, **kwargs):
     """
     Gets a config dictionary for a Ray Trainer
     :param env_name: the Ray-registered environment name (e.g. 'adversarial-pursuit')
@@ -166,12 +181,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
     :param kwargs: any other keyword arguments you want to put into the trainer config dict
     :return: a config dict for a Ray Trainer
     """
-    convs = {"adversarial-pursuit": [[13, 10, 1]],
-             "battle": [[21, 13, 1]],
-             "battlefield": [[21, 13, 1]],
-             "tiger-deer": [[9, 9, 1]],
-             "combined-arms": [[25, 13, 1]]}
-    conv_activation = "relu" #  "tanh", "relu", "swish" (or "silu")
+    convs = get_old_convs()
 
     trainer_config = {
         "env": env_name,
@@ -181,10 +191,10 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         },
         "model": {
             "conv_filters": convs[env_name] if conv_filters is None else conv_filters,
-            "conv_activation": conv_activation
+            # "conv_activation": conv_activation
         },
         "env_config": env_config,
-        "rollout_fragment_length": 500
+        # "rollout_fragment_length": 500
     }
 
     # Train policies that aren't RandomPolicy instances:
@@ -206,7 +216,7 @@ def get_trainer_config(env_name, policy_dict, policy_fn, env_config, conv_filter
         trainer_config["num_gpus_per_worker"] = 0.5
     else:  # For CPU training only:
         trainer_config["num_gpus"] = 0
-        # trainer_config["num_workers"] = 2
+        trainer_config["num_workers"] = num_workers
         # trainer_config["num_cpus_per_worker"] = 16
 
     trainer_config.update(kwargs)
@@ -238,6 +248,9 @@ def train_ray_trainer(trainer, num_iters=100, log_intervals=10, log_dir=None,
             if render and (env is not None) and (env_config is not None) and (policy_fn is not None):
                 render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_iter=max_render_iter, savefile=True, is_battle=is_battle)
     print(f"Full training took {(time.time() - true_start) / 60.0} minutes")
+
+    checkpoint = trainer.save(log_dir)
+    print("checkpoint saved at", checkpoint)
 
     trainer.stop()
     return checkpoint
@@ -288,6 +301,7 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
             action = single_action
         try:
             s = env.state() # (map_size, map_size, 5)
+            # 3rd and 5th cols correspond to HPs of the two teams
         except:
             log(f"{logname}.txt", f"\nAt {i}: one team eliminated - env.agents = {env.agents}") 
             break
