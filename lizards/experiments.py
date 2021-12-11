@@ -320,7 +320,7 @@ def ray_BA_training_share_randomized_retooled(test_mode=False):
     if test_mode: 
         kwargs['train_iters']=1
 
-    ray_train_generic(**kwargs, test_mode=test_mode, end_render=True)
+    ray_train_generic(**kwargs, test_mode=test_mode, savefile=True, end_render=True)
 
 def ray_TD_training_share_split_retooled():
     env_config = {'map_size': 30}
@@ -369,7 +369,7 @@ def ray_AP_training_share_split_retooled():
         **kwargs)
 
 
-def ray_AP_training_share_randomized_retooled():
+def ray_AP_training_share_randomized_retooled(test_mode=False):
     env_name = 'adversarial-pursuit'
     env_config = {'map_size': 19} # making this the same as in `ray_AP_training_share_split_retooled`
     team_data = [TeamPolicyConfig('predator', random_action_team=True), TeamPolicyConfig('prey')]
@@ -385,7 +385,7 @@ def ray_AP_training_share_randomized_retooled():
         'gpu': True
     }
 
-    ray_train_generic(**kwargs, end_render=True)
+    ray_train_generic(**kwargs, test_mode=test_mode, savefile=True, end_render=True)
 
 
 def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=2):
@@ -602,10 +602,11 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    exp2c_log_dir =  os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/exp_2c')
-    slurm_sample_checkpoint = "/users/yh31/scratch/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/pretrained_checkpoint_000200/checkpoint-200"
-    get_stats_BA(gpu=False, log_dir = exp2c_log_dir, checkpoint_path=slurm_sample_checkpoint)
-    # ray_BA_training_share_randomized_retooled(test_mode=False)
+    # exp2c_log_dir =  os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/exp_2c')
+    # slurm_sample_checkpoint = "/users/yh31/scratch/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/pretrained_checkpoint_000200/checkpoint-200"
+    # get_stats_BA(gpu=False, log_dir = exp2c_log_dir, checkpoint_path=slurm_sample_checkpoint)
+
+    ray_BA_training_share_randomized_retooled(test_mode=False)
     # print("Done with BA exp!")
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
