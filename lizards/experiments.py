@@ -188,8 +188,9 @@ def ray_train_generic(*args, end_render=True, savefile=False, policy_log_str=Non
 
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
+    is_battle = True if kwargs['env_name'] == "battle" else False
     if end_render:
-        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=savefile)
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=savefile, is_battle=is_battle)
     return checkpoint, trainer
 
 
@@ -599,7 +600,7 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    get_stats_BA(gpu=False)
+    # get_stats_BA(gpu=False)
     ray_BA_training_share_randomized_retooled(test_mode=False)
     print("Done with BA exp!")
     # ray_AP_training_share_randomized_retooled()
