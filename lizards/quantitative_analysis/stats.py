@@ -4,10 +4,9 @@ import supersuit as ss
 import os
 import numpy as np
 from collections import defaultdict
+import pandas as pd
 
-checkpoint_filepath = "../logs/2b-exp/checkpoint_000020"
-
-def get_agent_attacks(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, is_battle=False, logname = None):
+def get_agent_attacks(checkpoint, trainer, env, env_config, policy_fn, max_iter=2 ** 8, is_battle=False, logname = None, save_df = True):
     if checkpoint:
         trainer.restore(checkpoint)
 
@@ -21,6 +20,8 @@ def get_agent_attacks(checkpoint, trainer, env, env_config, policy_fn, max_iter=
 
     i = 0
     attacksPerAgent = defaultdict(0)
+    attacksTotal = defaultdict([])
+    attacksPerTeam = defaultdict(0)
 
     for agent in env.agent_iter(max_iter=max_iter):
         if i % 1000 == 0:
@@ -38,6 +39,11 @@ def get_agent_attacks(checkpoint, trainer, env, env_config, policy_fn, max_iter=
             if is_battle and 12 < action <= 20:
                 # 0-20 action space
                 attacksPerAgent[agent] += 1
+                if agent.starts_with("blue"):
+                    attacksPerTeam["blue"] += 1
+                else:
+                    attacksPerTeam["red"] += 1
+            attacksTotal[agent].append(12 < action <= 20)
         try:
             s = env.state() # (map_size, map_size, 5)
         except:
@@ -47,5 +53,9 @@ def get_agent_attacks(checkpoint, trainer, env, env_config, policy_fn, max_iter=
         env.step(action)
         i += 1
     env.close()
+    attacksDf = pd.DataFrame(attacksTotal)
+
+    if save_df:
+        attacksDf.to_csv(logname)
     log(f"{logname}.txt", f"attacks per agent {attacksPerAgent}") 
-    return attacksPerAgent
+    return attacksPerAgent, attacksTotal, attacksPerTeam
