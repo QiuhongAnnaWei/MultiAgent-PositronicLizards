@@ -278,13 +278,16 @@ def render_from_checkpoint(checkpoint, trainer, env, env_config, policy_fn, max_
         logname = checkpoint
     else:
         if not os.path.exists(os.path.split(logname)[0]): os.makedirs(os.path.split(logname)[0])
+    
     env = env.env(**env_config)
     env = ss.pad_observations_v0(env)
     env = ss.pad_action_space_v0(env)
     env.reset()
+
     if savefile:
         diff_frame_list = []
         width,height,img = None, None, None
+
     i = 0
     for agent in env.agent_iter(max_iter=max_iter):
         if i % 1000 == 0:
