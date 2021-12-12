@@ -7,28 +7,68 @@ from collections import defaultdict
 import pandas as pd
 from pathlib import Path
 
+""" TO DOs:
+1. Replace print statements with an actual logger
+"""
+
 def save_eval_viz(save_dir, save_file_prefix, diff_frame_list):
     save_dir = Path(save_dir)
+
     mp4_save_path = save_dir.joinpath("{save_file_prefix}.mp4")
+    gif_save_path = save_dir.joinpath("{save_file_prefix}.gif")
 
-    # TO DO
-    pass
+    print(f"# Saving gif to: {gif_save_path}")
+    diff_frame_list[0].save(gif_save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
+
+    print(f"# Saving gif to: {mp4_save_path}")
+    video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
+    for i, image in enumerate(diff_frame_list):
+        video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
+    for i in [0, len(diff_frame_list)-1]:
+        diff_frame_list[i].save(f"{save_file_prefix}_{i}.jpg")
+
+def record_attacks(is_battle, action, agent, attacks_per_agent, attacks_per_team, attacks_total):
+    action_is_atk = 12 < action <= 20
+
+    if is_battle and action_is_atk:
+        # 0-20 action space
+        attacks_per_agent[agent] += 1
+        if agent.startswith("blue"):
+            attacks_per_team["blue"] += 1
+        else:
+            attacks_per_team["red"] += 1
+    attacks_total[agent].append(action_is_atk)
 
 
-    
-    # save_path = f"{logname}.gif"
-    # log(f"{logname}.txt", f"\n# Saving gif to: {save_path}")
-    # diff_frame_list[0].save(save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
-    # save_path = f"{logname}.mp4"
-    # log(f"{logname}.txt", f"\n# Saving video to: {save_path}\n")
-    # video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
-    # for i, image in enumerate(diff_frame_list):
-    #     video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
-    # for i in [0, len(diff_frame_list)-1]:
-    #     diff_frame_list[i].save(f"{logname}_{i}.jpg")
+def package_attacks_data(attacks_per_agent, attacks_per_team, attacks_total):
+    list_of_atks_across_timesteps_per_agent_series = [pd.Series(atks_across_timesteps, name=agent_nm) for agent_nm, atks_across_timesteps in attacks_total.items()]
+
+    attacks_df = pd.concat(list_of_atks_across_timesteps_per_agent_series, axis=1)
+    attacks_df.index.name = "Timesteps"
+
+    attacks_data =  {"df": attacks_df,
+                     "attacks_per_agent": attacks_per_agent,
+                     "attacks_per_team": attacks_per_team,
+                     "attacks_total": attacks_total}
+
+    return attacks_data
 
 
-def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn, max_iter=2 ** 8, is_battle=True, log_dir=None, eval_id="", save_df=True, save_viz=False):
+def record_hp(env_state, team_red_hps, team_blue_hps):
+    hp_red = env_state[:,:,2]
+    hp_blue = env_state[:,:,4]
+    # not summing b/c don't want to lose individual agents' info (and can sum later)
+
+    team_red_hps.append(hp_red)
+    team_blue_hps.append(hp_blue)
+
+
+def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn, max_iter=2 ** 8, is_battle=True, log_dir=None, eval_id="", save_viz=False):
+    """
+    Runs an eval and collects stats (attacks, hp) from it 
+    eval_id is an id tt we can use to distinguish between eval runs
+    saves video of the eval run if save_viz == True
+    """
     if checkpoint_path:
         trainer.restore(checkpoint_path)
 
@@ -45,7 +85,8 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
         diff_frame_list = []
         width, height, img = None, None, None
 
-    attacksPerAgent, attacksTotal, attacksPerTeam = defaultdict(int), defaultdict(list), defaultdict(int)
+    attacks_per_agent, attacks_total, attacks_per_team = defaultdict(int), defaultdict(list), defaultdict(int)
+    team_red_hps, team_blue_hps = [], [] 
 
     i = 0
     done_agents = set()
@@ -58,7 +99,7 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
             print(agent, "is already done.")
         if done:
             action = None
-            attacksTotal[agent].append(action)
+            attacks_total[agent].append(action)
             print("Adding", agent, "to done_agents.")
             done_agents.add(agent)
         else:
@@ -68,21 +109,23 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
             batched_action, state_out, info = policy.compute_actions_from_input_dict(batch_obs)
             single_action = batched_action[0]
             action = single_action 
-            if is_battle and 12 < action <= 20:
-                # 0-20 action space
-                attacksPerAgent[agent] += 1
-                if agent.startswith("blue"):
-                    attacksPerTeam["blue"] += 1
-                else:
-                    attacksPerTeam["red"] += 1
-            attacksTotal[agent].append(12 < action <= 20)
+
+            record_attacks(is_battle, action, agent, attacks_per_agent, attacks_per_team, attacks_total)
+
         try:
-            s = env.state() # (map_size, map_size, 5)
+            env_state = env.state() # (map_size, map_size, 5)
         except:
+            env_state = None
             #log(f"{log_dir}.txt", f"\nAt {i}: one team eliminated - env.agents = {env.agents}") 
-            break
-        # out = False
+            print(f"\nAt {i}: one team eliminated - env.agents = {env.agents}")
+            # break
+            # I have no idea why `break` needs to be commented out when im running it
+
+        if env_state is not None:
+            record_hp(env_state, team_red_hps, team_blue_hps)
+
         env.step(action)
+    
         if save_viz:
             img2 = PIL.Image.fromarray(env.render(mode='rgb_array'))
             if img is None:
@@ -98,20 +141,26 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
         i += 1
     
     env.close()
-    if save_viz: save_eval_viz(save_dir, f"viz_{eval_id}", diff_frame_list)
+    if save_viz: save_eval_viz(log_dir, f"viz_{eval_id}", diff_frame_list)
+
+    attacks_data = package_attacks_data(attacks_per_agent, attacks_per_team, attacks_total)
+    hp_data = {"team_red_hps": team_red_hps,
+               "team_blue_hps": team_blue_hps}
+
+    # log(f"{log_dir}.txt", f"attacks per agent {attacks_per_agent}") 
+    return attacks_data, hp_data
 
 
-    # Will prob move this df-making code out once I add the HP code
-    # make the df; using the concat method coz arrays not of same len
-    list_of_atks_across_timesteps_per_agent_series = [pd.Series(atks_across_timesteps, name=agent_nm) for agent_nm, atks_across_timesteps in attacksTotal.items()]
-    attacksDf = pd.concat(list_of_atks_across_timesteps_per_agent_series, axis=1)
-    attacksDf.index.name = "Timesteps"
 
-    if save_df:
-        df_csv_savepath = log_dir.joinpath("attacks_data.csv")
-        attacksDf.to_csv(df_csv_savepath)
-        print(f"attacks df saved at {df_csv_savepath}")
-    # log(f"{log_dir}.txt", f"attacks per agent {attacksPerAgent}") 
-    return attacksPerAgent, attacksTotal, attacksPerTeam, attacksDf
+# Will prob move this df-making code out once I add the HP code
+# make the df; using the concat method coz arrays not of same len
 
+# list_of_atks_across_timesteps_per_agent_series = [pd.Series(atks_across_timesteps, name=agent_nm) for agent_nm, atks_across_timesteps in attacks_total.items()]
+# attacks_df = pd.concat(list_of_atks_across_timesteps_per_agent_series, axis=1)
+# attacks_df.index.name = "Timesteps"
+
+# if save_df:
+#     df_csv_savepath = log_dir.joinpath("attacks_data.csv")
+#     attacks_df.to_csv(df_csv_savepath)
+#     print(f"attacks df saved at {df_csv_savepath}")
 

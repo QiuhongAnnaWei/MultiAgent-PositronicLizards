@@ -139,13 +139,13 @@ def get_stats_BA(*args, log_dir=None, gpu = False, checkpoint_path=None):
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
     trainer = ppo.PPOTrainer(config=trainer_config)
 
-    # checkpoint = train_ray_trainer(trainer, num_iters=1, log_intervals=1, log_dir='logs/ttt')
-    # hard_coded_checkpoint = log_dir + '/checkpoint_000020/checkpoint-20'
     
     # 2. Run eval and collect stats
     if checkpoint_path:
-        print(collect_stats_from_eval(checkpoint_path, trainer, battle_v3, env_config, policy_fn))
-        # pass
+        attacks_data, hp_data = collect_stats_from_eval(checkpoint_path, trainer, battle_v3, env_config, policy_fn)
+        return attacks_data, hp_data 
+        # TO DO: Add saving to csv etc functionality 
+        
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
@@ -603,10 +603,10 @@ def main():
     # print("\nDONE")
 
     # exp2c_log_dir =  os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/exp_2c')
-    # slurm_sample_checkpoint = "/users/yh31/scratch/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/pretrained_checkpoint_000200/checkpoint-200"
-    # get_stats_BA(gpu=False, log_dir = exp2c_log_dir, checkpoint_path=slurm_sample_checkpoint)
+    slurm_sample_checkpoint = "/users/yh31/scratch/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/pretrained_checkpoint_000200/checkpoint-200"
+    get_stats_BA(gpu=False, checkpoint_path=slurm_sample_checkpoint)
 
-    ray_BA_training_share_randomized_retooled(test_mode=False)
+    # ray_BA_training_share_randomized_retooled(test_mode=False)
     # print("Done with BA exp!")
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
