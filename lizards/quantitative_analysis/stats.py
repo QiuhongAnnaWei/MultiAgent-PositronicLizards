@@ -48,13 +48,19 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
     attacksPerAgent, attacksTotal, attacksPerTeam = defaultdict(int), defaultdict(list), defaultdict(int)
 
     i = 0
+    done_agents = set()
     for agent in env.agent_iter(max_iter=max_iter):
         if i % 1000 == 0:
             print(f"getting actions for: iter {i} ...")
         observation, reward, done, info = env.last() # (observation[:,:,3/4]==0).sum()
+
+        if agent in done_agents:
+            print(agent, "is already done.")
         if done:
             action = None
             attacksTotal[agent].append(action)
+            print("Adding", agent, "to done_agents.")
+            done_agents.add(agent)
         else:
             agentpolicy = policy_fn(agent, None)  # map agent id to policy id
             policy = trainer.get_policy(agentpolicy)
