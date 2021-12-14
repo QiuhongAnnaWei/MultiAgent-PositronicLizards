@@ -142,8 +142,8 @@ def get_stats_BA(*args, log_dir=None, gpu = False, checkpoint_path=None):
     
     # 2. Run eval and collect stats
     if checkpoint_path:
-        attacks_data, hp_data = collect_stats_from_eval(checkpoint_path, trainer, battle_v3, env_config, policy_fn)
-        return attacks_data, hp_data 
+        losing_team, attacks_data, hp_data = collect_stats_from_eval(checkpoint_path, trainer, battle_v3, env_config, policy_fn)
+        return losing_team, attacks_data, hp_data
         # TO DO: Add saving to csv etc functionality 
         
 

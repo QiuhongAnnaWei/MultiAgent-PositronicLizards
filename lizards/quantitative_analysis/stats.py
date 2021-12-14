@@ -85,12 +85,14 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
         diff_frame_list = []
         width, height, img = None, None, None
 
-    attacks_per_agent, attacks_total, attacks_per_team = defaultdict(int), defaultdict(list), defaultdict(int)
+    attacks_per_agent, attacks_total, attacks_per_team, losing_team = defaultdict(int), defaultdict(list), defaultdict(int), None
     team_red_hps, team_blue_hps = [], [] 
 
     i = 0
     done_agents = set()
+    most_recent_done_agent = None
     for agent in env.agent_iter(max_iter=max_iter):
+        # print(i,":", agent)
         if i % 1000 == 0:
             print(f"getting actions for: iter {i} ...")
         observation, reward, done, info = env.last() # (observation[:,:,3/4]==0).sum()
@@ -102,6 +104,7 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
             attacks_total[agent].append(action)
             print("Adding", agent, "to done_agents.")
             done_agents.add(agent)
+            most_recent_done_agent = agent
         else:
             agentpolicy = policy_fn(agent, None)  # map agent id to policy id
             policy = trainer.get_policy(agentpolicy)
@@ -114,12 +117,18 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
 
         try:
             env_state = env.state() # (map_size, map_size, 5)
-        except:
+            # print("env_state", len(env_state))
+        except Exception as e:
+            print("e:", e)
             env_state = None
             #log(f"{log_dir}.txt", f"\nAt {i}: one team eliminated - env.agents = {env.agents}") 
             print(f"\nAt {i}: one team eliminated - env.agents = {env.agents}")
-            # break
+            print("done_agents:", done_agents)
+            if not losing_team:
+                losing_team = most_recent_done_agent.split("_")[0]
+            break
             # I have no idea why `break` needs to be commented out when im running it
+            # (Eli): I don't need to comment it out?
 
         if env_state is not None:
             record_hp(env_state, team_red_hps, team_blue_hps)
@@ -146,9 +155,10 @@ def collect_stats_from_eval(checkpoint_path, trainer, env, env_config, policy_fn
     attacks_data = package_attacks_data(attacks_per_agent, attacks_per_team, attacks_total)
     hp_data = {"team_red_hps": team_red_hps,
                "team_blue_hps": team_blue_hps}
-
+    # print("red hps:", team_red_hps[-1])
+    # print("blue hps:", team_blue_hps[-1])
     # log(f"{log_dir}.txt", f"attacks per agent {attacks_per_agent}") 
-    return attacks_data, hp_data
+    return losing_team, attacks_data, hp_data
 
 
 
