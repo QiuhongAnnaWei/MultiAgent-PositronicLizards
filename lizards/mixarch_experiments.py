@@ -10,6 +10,9 @@ import uuid
 from datetime import datetime
 from experiments import env_directory, env_spaces, TeamPolicyConfig
 
+from ray.rllib.examples.policy.random_policy import RandomPolicy
+from ray.rllib.policy.policy import PolicySpec
+
 
 battle_arch = {
     "new_arch": [[7, [5, 5], 2], [21, [3, 3], 2], [21, [4,4], 1]], # (13,13,5) -> (7,5,5) -> (21,3,3) -> (21,1,1)
@@ -68,14 +71,14 @@ def BF_training_arch(*args):
     for key in rewards:
         print(f"{key}: {rewards[key]}")
 
-
+# PPO_battleself-play-ms19_120-iters_ms19_c6f6a
 def BA_selfplay_evaluate(env_name = 'battle', gpu = False):
-    env_config = {'map_size': 30}
+    env_config = {'map_size': 19}
     policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
     policy_fn = lambda *args, **kwargs: 'all'
     trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
     trainer = ppo.PPOTrainer(config=trainer_config)
-    checkpoint = 'logs/battle/PPO_battle_self-play_120-iters__75eeb/checkpoint_000120/checkpoint-120'
+    checkpoint = 'logs/battle/PPO_battleself-play-ms19_120-iters_ms19_c6f6a/checkpoint_000120/checkpoint-120'
     render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True, is_battle=True) 
     rewards, rewards_log = evaluate_policies(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000)
     print("\npolicy_evaluation_rewards = \n")
@@ -123,31 +126,34 @@ def BA_selfplay_random_evaluate(env_name = 'battle', gpu = False):
 def BA_selfplay_mix_evaluate(env_name = 'battle', gpu = False):
     # log set up
     timestamp = int(datetime.timestamp(datetime.now())) #%10000
-    logname = f"logs/battle/evaluation/ms30_selfplay/{timestamp}_Rsp120Bso20/{timestamp}.txt"
+    logname = f"logs/battle/Combination/{timestamp}_Rselfplay-Brandom/{timestamp}.txt"
     if not os.path.exists(os.path.split(logname)[0]): os.makedirs(os.path.split(logname)[0])
     log(logname, logname)
     # config set up
-    env_config = {'map_size': 30}
-    eval_env_config = {'map_size': 30}
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
     log(logname, [f"\nenv_config = {env_config}", f"\neval_env_config = {eval_env_config}"])
     eval_config = {
-        "red_ckpt": "logs/battle/PPO_battle_self-play_120-iters__75eeb/checkpoint_000120/checkpoint-120",
+        "red_ckpt": "logs/battle/PPO_battleself-play-ms19_120-iters_ms19_c6f6a/checkpoint_000120/checkpoint-120",
         "red_load": "all",
         "red_arch": "old_arch", # self play is only old arch
-        "blue_ckpt": "logs/battle/PPO_battle_self-play_120-iters__75eeb/checkpoint_000100/checkpoint-100",
-        "blue_load": "all",
+        "blue_ckpt": "logs/battle/PPO_random/PPO_battle_120-iters_ms19_bcdcc/checkpoint_000120/checkpoint-120",
+        "blue_load": "blue_shared",
         "blue_arch": "old_arch",
     }
     log(logname, ["\neval_config = ", json.dumps(eval_config, indent=2)])
     # get selfplay weights for red
-    policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
-    policy_fn = lambda *args, **kwargs: 'all'
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
     temp_trainer = ppo.PPOTrainer(config=trainer_config)
     temp_trainer.restore(eval_config["red_ckpt"])
     red_weights = temp_trainer.get_policy(eval_config["red_load"]).get_weights()
     temp_trainer.stop()
     # get selfplay weights for blue
+    policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+    policy_fn = lambda *args, **kwargs: 'all'
+    trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
     temp_trainer = ppo.PPOTrainer(config=trainer_config)
     temp_trainer.restore(eval_config["blue_ckpt"])
     blue_weights = temp_trainer.get_policy(eval_config["blue_load"]).get_weights()
@@ -193,7 +199,7 @@ def BA_arch_traineval(env_name = 'battle', gpu = False, evaluate=True):
     trainer_config["model"]["conv_filters"] = battle_arch[arch]
     trainer = ppo.PPOTrainer(config=trainer_config)
     if evaluate:
-        checkpoint = 'logs/battle/PPO_battle_oldarch__ms19_cad08/checkpoint_000040/checkpoint-40'
+        checkpoint = 'logs/battle/PPO_random/PPO_battle_120-iters_ms19_bcdcc/checkpoint_000120/checkpoint-120'
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True, is_battle=True) 
     else:
         policy_log_str = "".join([p.for_filename() for p in team_data])
@@ -206,7 +212,7 @@ def BA_arch_traineval(env_name = 'battle', gpu = False, evaluate=True):
     for key in rewards:
         print(f"{key}: {rewards[key]}")
 
-def BA_arch_traineval_pretrained(env_name = 'battle', gpu = False, evaluate=False):
+def BA_arch_traineval_pretrained(env_name = 'battle', gpu = False, evaluate=True):
     pt_ckpt = 'logs/battle/PPO_battle_oldarch__ms19_cad08/checkpoint_000040/checkpoint-40' # 'logs/PPO_battle_oldarch__ms30_baed4/checkpoint_000020/checkpoint-20'
     pt_team = "blue_shared"
     env_config = {'map_size': 19}
@@ -217,7 +223,7 @@ def BA_arch_traineval_pretrained(env_name = 'battle', gpu = False, evaluate=Fals
     trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
     if evaluate:
         trainer = ppo.PPOTrainer(config=trainer_config)
-        checkpoint = 'logs/battle/PPO_battle_pretrained_200-iters__14b27/checkpoint_000020/checkpoint-20'
+        checkpoint = 'logs/battle/PPO_battle_19pretrained-cad08_120-iters__cd1c3/checkpoint_000120/checkpoint-120'
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True, is_battle=True) 
     else:
         temp_trainer = ppo.PPOTrainer(config=trainer_config)
@@ -278,23 +284,27 @@ def BA_random_evaluate(env_name = 'battle', gpu = False):
 def BA_mixarch_evaluate(env_name = 'battle', gpu = False):
     # log set up
     timestamp = int(datetime.timestamp(datetime.now())) #%10000
-    logname = f"logs/battle/evaluation/ms30_old_iter-iter/{timestamp}_old_R120B100/{timestamp}.txt"
+    logname = f"logs/battle/evaluation_exp2/Combination/{timestamp}_Rpretrained-Bselfplay/{timestamp}.txt"
     if not os.path.exists(os.path.split(logname)[0]): os.makedirs(os.path.split(logname)[0])
     log(logname, logname)
     # config set up
-    env_config = {'map_size': 30}
-    eval_env_config = {'map_size': 30}
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
     log(logname, [f"\nenv_config = {env_config}", f"\neval_env_config = {eval_env_config}"])
     eval_config = {
-        "red_ckpt": "logs/battle/PPO_battle_oldarch__ms30_baed4/checkpoint_000120/checkpoint-120",
+        # pretrained-red: "logs/battle/PPO_battle_19pretrained-cad08_120-iters__cd1c3/checkpoint_000120/checkpoint-120",
+        # selfplay-all: "logs/battle/PPO_battleself-play-ms19_120-iters_ms19_c6f6a/checkpoint_000120/checkpoint-120",
+        # random-blue: "logs/battle/PPO_random/PPO_battle_120-iters_ms19_bcdcc/checkpoint_000120/checkpoint-120"
+        "red_ckpt": "logs/battle/PPO_battle_19pretrained-cad08_120-iters__cd1c3/checkpoint_000120/checkpoint-120",
         "red_load": "red_shared",
         "red_arch": "old_arch",
-        "blue_ckpt": "logs/battle/PPO_battle_oldarch__ms30_baed4/checkpoint_000100/checkpoint-100",
-        "blue_load": "blue_shared",
+        "blue_ckpt": "logs/battle/PPO_battleself-play-ms19_120-iters_ms19_c6f6a/checkpoint_000120/checkpoint-120",
+        "blue_load": "all",
         "blue_arch": "old_arch",
     }
     log(logname, ["\neval_config = ", json.dumps(eval_config, indent=2)])
-    # restore red weights
+    ## 1. restore red weights
+    ## pretrained:
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
@@ -303,13 +313,38 @@ def BA_mixarch_evaluate(env_name = 'battle', gpu = False):
     temp_trainer.restore(eval_config["red_ckpt"])
     red_weights = temp_trainer.get_policy(eval_config["red_load"]).get_weights()
     temp_trainer.stop()
-    # restore blue weights
-    trainer_config["model"]["conv_filters"] = battle_arch[eval_config["blue_arch"]]
+    ## selfplay:
+    # team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    # policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+    # policy_fn = lambda *args, **kwargs: 'all'
+    # trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    # temp_trainer = ppo.PPOTrainer(config=trainer_config)
+    # temp_trainer.restore(eval_config["red_ckpt"])
+    # red_weights = temp_trainer.get_policy(eval_config["red_load"]).get_weights()
+    # temp_trainer.stop()
+
+    ## 2. restore blue weights
+    ### random:
+    # team_data = [TeamPolicyConfig('red', random_action_team=True), TeamPolicyConfig('blue')]
+    # policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    # trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    # temp_trainer = ppo.PPOTrainer(config=trainer_config)
+    # temp_trainer.restore(eval_config["blue_ckpt"])
+    # blue_weights = temp_trainer.get_policy(eval_config["blue_load"]).get_weights()
+    # temp_trainer.stop()
+    ## selfplay:
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+    policy_fn = lambda *args, **kwargs: 'all'
+    trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
     temp_trainer = ppo.PPOTrainer(config=trainer_config)
     temp_trainer.restore(eval_config["blue_ckpt"])
     blue_weights = temp_trainer.get_policy(eval_config["blue_load"]).get_weights()
     temp_trainer.stop()
-    # evaluate
+
+    ## 3. evaluate
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     policy_dict["red_shared"] = (policy_dict["red_shared"][0], policy_dict["red_shared"][1], policy_dict["red_shared"][2], 
             { "model": {  "conv_filters": battle_arch[eval_config["red_arch"]], "conv_activation": "relu" }})
     policy_dict["blue_shared"] = (policy_dict["blue_shared"][0], policy_dict["blue_shared"][1], policy_dict["blue_shared"][2], 
@@ -320,6 +355,7 @@ def BA_mixarch_evaluate(env_name = 'battle', gpu = False):
     evaluator = ppo.PPOTrainer(config=trainer_config)
     evaluator.get_policy("red_shared").set_weights(red_weights) # transfer the weights
     evaluator.get_policy("blue_shared").set_weights(blue_weights)
+
     render_from_checkpoint(None, evaluator, battle_v3, env_config, policy_fn, max_iter=10000, savefile=True, is_battle=True, logname=logname[:-4]) 
     rewards, rewards_log = evaluate_policies(None, evaluator, battle_v3, env_config, policy_fn, max_iter=10000)
     log(logname, ["\npolicy_evaluation_rewards = \n", json.dumps(rewards)])
@@ -469,9 +505,9 @@ if __name__ == "__main__":
     # BA_selfplay_mix_evaluate()
 
     # BA_arch_traineval()
-    BA_arch_traineval_pretrained()
+    # BA_arch_traineval_pretrained()
     # BA_random_evaluate()
-    # BA_mixarch_evaluate()
+    BA_mixarch_evaluate()
 
     # BA_split_evaluate()
     # BA_random_split_evaluate()
