@@ -127,7 +127,7 @@ def ray_experiment_BA_visualize(*args, gpu=True):
         # print(rewards)
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
-def get_stats_BA(*args, checkpoint_path, log_dir=None, gpu = False):
+def iterate_BA_stats_eval_trials(checkpoint_path, num_trials = 100, log_dir=None, gpu = False):
     """Gets the stats for Battle from a checkpoint including the number of attacks."""
 
     # Make sure valid log directory exists:
@@ -145,14 +145,51 @@ def get_stats_BA(*args, checkpoint_path, log_dir=None, gpu = False):
     representative_trainer = ppo.PPOTrainer(config=trainer_config)
     representative_trainer.restore(checkpoint_path)
 
-    # Run eval and collect stats:
-    losing_team, agent_attacks_df, team_attacks_df, team_hps_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, log_dir)
-    # agent_attacks_df.to_csv("agent_attacks_test.csv")
-    # team_attacks_df.to_csv("team_attacks_test.csv")
-    # team_hps_df.to_csv("hp_test.csv")
-    return losing_team, agent_attacks_df, team_attacks_df
-    # TO DO: Add saving to csv etc functionality 
-        
+    for _ in range(num_trials):
+        losing_team, agent_attacks_df, team_attacks_df, team_hps_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, log_dir)
+        yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df
+
+def write_BA_stats_CSVs(checkpoint_path, num_trials = 2, log_dir=None, gpu = False):
+    """Gets the stats for Battle from a checkpoint including the number of attacks. 
+    Outputs these as CSVs within the checkpoint directory that is supplied.
+
+    - CSV descriptions (every trial has their own folder of CSVs):
+        1. "AGENT_ATTACKS_TEMPORAL.csv" - Cells are true/false for attack/not attack when it is that agent's turn.
+                Columns are specific agents, and columns correspond to a __time__ in the game. 
+                In other words, the actions corresponding all of the cells in any row form the only player-actions 
+                that occurred within some specific window of time (this window shortens as players are eliminated).
+
+        2. "TEAM_ATTACKS_ORDERED.csv" - Each column is an ordered boolean list representing the exact sequence of attack/not attack
+                decisions that a certain team made throughout the game. Note that when a team has more players than the other, it will 
+                have more attack opportunities per unit of time than the other team, so rows do not necessarily map to specific moments.
+
+        3. "TEAM_HPS_COMBINED_TEMPORAL.csv" - Each column is an ordered vector list represented each team's HP state
+                 __after any action from any agent__. Since all team's HP are written and read at the same time throughout the game, 
+                 the data has both temporal and ordered meaning. All of the HP values in any row correspond to the exact same moment in time.
+
+    - Also, a "LOSING_TEAM_ACROSS_TRIALS.csv" exists in the upper directory that simply lists which team lost for each trial.
+    """
+    # Create directory for this run:
+    checkpoint_parent_path = Path(checkpoint_path).parent
+    unique_run_ID = "unique_id" # TO BE IMPLEMENTED BY YONGMING
+    run_path = checkpoint_parent_path / unique_run_ID
+    run_path.mkdir(exist_ok=True)
+
+    losing_teams = []
+    # Populate each trial-folder with CSVs:
+    for i, (losing_team, agent_attacks_df, team_attacks_df, team_hps_df) in enumerate(iterate_BA_stats_eval_trials(checkpoint_path, num_trials, log_dir, gpu)):
+        print("Running trial", i)
+        trial_path = run_path / ("trial_" + str(i))
+        trial_path.mkdir(exist_ok=True)
+        agent_attacks_df.to_csv((trial_path / "AGENT_ATTACKS_TEMPORAL.csv").resolve())
+        team_attacks_df.to_csv((trial_path / "TEAM_ATTACKS_ORDERED.csv").resolve())
+        team_hps_df.to_csv((trial_path / "TEAM_HPS_COMBINED_TEMPORAL.csv").resolve())
+        losing_teams.append(losing_team)
+    
+    losing_teams_series = [pd.Series(losing_teams, name="Losing Team")]
+    losing_team_df = pd.concat(losing_teams_series, axis=1)
+    losing_team_df.index.name = "Trial #"
+    losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
