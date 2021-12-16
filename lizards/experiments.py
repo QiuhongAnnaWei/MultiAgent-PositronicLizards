@@ -42,6 +42,21 @@ env_spaces = {'adversarial-pursuit':
               }
 
 
+# (Filestructure constants for checkpoint analysis)
+
+EXP2_BASE_PATH = Path("/Users/eli/Downloads/MultiAgent-PositronicLizards/lizards/downloaded_checkpoints/")
+EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "PPO_battle_oldarch__ms19_cad08", # (this mirrors Google drive filenenames, compared to below)
+                            "self-play": "PPO_battle_self-play_120-iters__75eeb",
+                            "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
+                            "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+# EXP2_BASE_PATH = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
+# EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "BASELINE_oldarch__ms19_cad08",
+#                             "self-play": "SELFPLAY_120-iters__75eeb",
+#                             "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
+#                             "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
+EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
+
 class TeamPolicyConfig:
     def __init__(self, team_name, method='shared', count=None, random_action_team=False):
         """
@@ -244,31 +259,18 @@ def write_BA_stats_CSVs_given_trainer(trainer, log_dir, env_config, policy_fn, n
     losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
 
 
-#--------------------------------------------------
-# Running each of the exp 2 things against baseline
-# -------------------------------------------------
-def get_exp2_checkpoint_paths():
-    base_exp2_path = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
-    checkpoint120_path = "checkpoint_000120/checkpoint-120"
-    exp_2_chkpt_suffix_paths = {"baseline": "BASELINE_oldarch__ms19_cad08",
-                                "self-play": "SELFPLAY_120-iters__75eeb",
-                                "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
-                                "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
-    exp_2_chkpt_suffix_paths = {suffix: base_exp2_path / pth / checkpoint120_path for suffix, pth in exp_2_chkpt_suffix_paths.items()}
-    return exp_2_chkpt_suffix_paths
-
-
+# ------------------------------------------------------------
+# We are always comparing baseline against some other policy.
+# ------------------------------------------------------------
 def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
-
-    checkpoint_paths = get_exp2_checkpoint_paths()
-    NON_baseline_chkpt_path = checkpoint_paths["self-play"]
-    baseline_chkpt_path = checkpoint_paths["baseline"]
+    baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["baseline"]
+    NON_baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["self-play"]
 
     if not Path(NON_baseline_chkpt_path).exists() or not Path(baseline_chkpt_path).exists(): 
         raise Exception("checkpoint does not exist at path!")
 
     run_name = "selfplay_vs_baseline" # timestamp will be added in stats fn
-     
+
     # config set up
     env_config = {'map_size': 19}
     eval_env_config = {'map_size': 19}
@@ -312,7 +314,6 @@ def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env
 
     # and evaluate
     write_BA_stats_CSVs_given_trainer(eval_trainer, log_dir, env_config, policy_fn, num_trials=n_trials, save_viz=True, gpu=False, run_name_from_user=run_name)
-
 
 
 
