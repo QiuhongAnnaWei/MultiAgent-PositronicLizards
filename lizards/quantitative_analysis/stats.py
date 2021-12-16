@@ -11,21 +11,22 @@ from pathlib import Path
 1. Replace print statements with an actual logger
 """
 
-def save_eval_viz(save_dir, save_file_prefix, diff_frame_list):
+def save_eval_viz(save_dir, save_file_prefix, diff_frame_list, width, height):
     save_dir = Path(save_dir)
 
-    mp4_save_path = save_dir.joinpath("{save_file_prefix}.mp4")
-    gif_save_path = save_dir.joinpath("{save_file_prefix}.gif")
+    mp4_save_path = str(save_dir.joinpath(f"{save_file_prefix}.mp4"))
+    gif_save_path = str(save_dir.joinpath(f"{save_file_prefix}.gif"))
 
     print(f"# Saving gif to: {gif_save_path}")
     diff_frame_list[0].save(gif_save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
 
     print(f"# Saving gif to: {mp4_save_path}")
-    video = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
+    video = cv2.VideoWriter(mp4_save_path, cv2.VideoWriter_fourcc(*'mp4v'), 1, (width, height))
     for i, image in enumerate(diff_frame_list):
         video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
     for i in [0, len(diff_frame_list)-1]:
-        diff_frame_list[i].save(f"{save_file_prefix}_{i}.jpg")
+        frame_path = str(save_dir.joinpath(f"{save_file_prefix}_{i}.jpg"))
+        diff_frame_list[i].save(frame_path)
 
 def record_attacks(action, agent, team_attack_statuses, agent_attack_statuses, agent_to_team_func):
     agent_attacked =  (12 < action <= 20) # (Currently only recognizes battle attacks).
@@ -134,14 +135,14 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
                 img = img2.copy()
                 ImageDraw.Draw(img2).text( (2, height-10), f"iter={i}", (0,0,0))
                 if is_battle:
-                    ImageDraw.Draw(img2).text( (2, 13), f"HP={str(round((s[:,:,2]).sum(), 2))}",  (0,0,0)) 
-                    ImageDraw.Draw(img2).text( (width-55, 13), f"HP={str(round((s[:,:,4]).sum(), 2))}",  (0,0,0)) # "{:.4f}".format()
+                    ImageDraw.Draw(img2).text( (2, 13), f"HP={str(round((env_state[:,:,2]).sum(), 2))}",  (0,0,0)) 
+                    ImageDraw.Draw(img2).text( (width-55, 13), f"HP={str(round((env_state[:,:,4]).sum(), 2))}",  (0,0,0)) # "{:.4f}".format()
                 diff_frame_list.append(img2)
     env.close()
 
     if save_viz: 
         # Stack each frame as a video:
-        save_eval_viz(log_dir, f"viz_{eval_id}", diff_frame_list)
+        save_eval_viz(log_dir, f"viz_{eval_id}", diff_frame_list, width, height)
 
     agent_attacks_df, team_attacks_df, team_hps_df = package_attacks_data(team_attack_statuses, agent_attack_statuses, team_hp_values)
 
