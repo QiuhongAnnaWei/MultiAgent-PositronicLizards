@@ -325,7 +325,7 @@ def comparative_reward_viz_axflip(fig, ax, team_1_group, team_2_group, dts=None,
 
     custom_lines = [Line2D([0], [0], color=legend_colors[0], lw=3),
                     Line2D([0], [0], color=legend_colors[1], lw=3)]
-    ax.legend(custom_lines, ['Shared Vs. Shared', 'Shared Vs. Split (Red)'], loc=loc)
+    ax.legend(custom_lines, ['Shared Vs. Shared', 'Shared Vs. Split (Predator)'], loc=loc)
 
 
 def main_plotting_fn(team_1, team_2, dtsl=None, dtsr=None, suptitle='None', symmetrical=True, team_1_name='Red',
@@ -454,21 +454,21 @@ def right_plotting_fn(team_1, team_2, dtsl=None, dtsr=None, suptitle='None', sta
 
 def main():
     # Battle shared shared plots
-    battle_shared_shared = get_all_result_data("result_data/battle_shared_shared_ms30/result.json")
-    # main_plotting_fn(battle_shared_shared['red'], battle_shared_shared['blue'],
-    #                  suptitle='Battle Env - Red:Shared, Blue:Shared')
-    #                  # savename='plots/Battle-ShSh.png', same_fig=False)
-
-    # Battle shared split plots
-    battle_shared_split = get_all_result_data("result_data/battle_shared_split_ms30/result.json")
-    # main_plotting_fn(battle_shared_split['red'], battle_shared_split['blue'],
-    #                  suptitle='Battle Env - Red:Split, Blue:Shared')
-    #                  # savename='plots/Battle-ShSp.png', same_fig=False)
-
-    main_plotting_fn_2configs(battle_shared_shared['red'], battle_shared_shared['blue'],
-                              battle_shared_split['red'], battle_shared_split['blue'],
-                              suptitle='Battle - Reward Breakdown per Training Iteration', same_fig=True,
-                              savename='plots/Battle-trio.png')
+    # battle_shared_shared = get_all_result_data("result_data/battle_shared_shared_ms30/result.json")
+    # # main_plotting_fn(battle_shared_shared['red'], battle_shared_shared['blue'],
+    # #                  suptitle='Battle Env - Red:Shared, Blue:Shared')
+    # #                  # savename='plots/Battle-ShSh.png', same_fig=False)
+    #
+    # # Battle shared split plots
+    # battle_shared_split = get_all_result_data("result_data/battle_shared_split_ms30/result.json")
+    # # main_plotting_fn(battle_shared_split['red'], battle_shared_split['blue'],
+    # #                  suptitle='Battle Env - Red:Split, Blue:Shared')
+    # #                  # savename='plots/Battle-ShSp.png', same_fig=False)
+    #
+    # main_plotting_fn_2configs(battle_shared_shared['red'], battle_shared_shared['blue'],
+    #                           battle_shared_split['red'], battle_shared_split['blue'],
+    #                           suptitle='Battle - Reward Breakdown per Training Iteration', same_fig=True,
+    #                           savename='plots/Battle-trio.png')
 
     # # Battle selfplay plots
     # battle_selfplay = get_result_data("result_data/battle_selfplay/result.json")
@@ -491,10 +491,10 @@ def main():
     #
     main_plotting_fn_2configs(ap_shared_shared['predator'], ap_shared_shared['prey'],
                               ap_shared_split['predator'], ap_shared_split['prey'],
-                              suptitle='Adversarial Pursuit - Reward Breakdown per Training Iteration', same_fig=True, symmetrical=False,
-                              team_1_name='Predator', team_2_name='Prey', dtsl=['max', 'mean'], dtsr=['max', 'mean'],
+                              suptitle='Adversarial Pursuit - Reward Breakdown per Training Iteration', same_fig=False, symmetrical=False,
+                              team_1_name='Predator', team_2_name='Prey',
                               loc='lower left',
-                              savename='plots/AP-trio.png')
+                              savename='plots/AP-duo.png')
 
 
 if __name__ == '__main__':
