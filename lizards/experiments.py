@@ -19,6 +19,7 @@ import argparse
 import uuid
 from itertools import product
 from datetime import datetime
+from pathlib import Path
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
                  'battlefield': battlefield_v3, "combined-arms": combined_arms_v5}
@@ -171,6 +172,8 @@ def write_BA_stats_CSVs(checkpoint_path, num_trials=2, save_viz=True, gpu=False,
                  __after any action from any agent__. Since all team's HP are written and read at the same time throughout the game, 
                  the data has both temporal and ordered meaning. All of the HP values in any row correspond to the exact same moment in time.
 
+        4. "ABSOLUTE_TIMELINE.csv" - Logs what's happening at every iteration of the agent_iter loop. That is, each row consists of (i) the id of the agent whose turn it is, (ii) what action the agent took (if it died on that iteration, that’s recorded as “died”), and (iii) the scalar hps of the teams at that iteration. The index of this csv corresponds to the iteration idx of the agent_iter loop.
+
     - Also, a "LOSING_TEAM_ACROSS_TRIALS.csv" exists in the upper directory that simply lists which team lost for each trial.
     """
     # Create directory for this run:
@@ -197,6 +200,120 @@ def write_BA_stats_CSVs(checkpoint_path, num_trials=2, save_viz=True, gpu=False,
     losing_team_df = pd.concat(losing_teams_series, axis=1)
     losing_team_df.index.name = "Trial #"
     losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
+
+
+# YM: I'm too sleepy to be able to think of the best abstractions, so just going to make adapted variants of the logging infrastructure for the evals we need to run
+
+def iterate_BA_stats_eval_trials_given_trainer(run_path, trainer, env_config, policy_fn, num_trials = 100, gpu = False, save_viz=True):
+    """*Given a trainer*, gets the stats for Battle including the number of attacks."""
+
+    for trial_i in range(num_trials):
+        trial_path = run_path / ("trial_" + str(trial_i))
+        losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df = collect_stats_from_eval(trainer, battle_v3, env_config, policy_fn, trial_path, save_viz=save_viz)
+        yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df
+
+
+def write_BA_stats_CSVs_given_trainer(trainer, log_dir, env_config, policy_fn, num_trials=2, save_viz=True, gpu=False, run_name_from_user=""):
+    """
+    *Given trainer*, gets the stats for Battle; outputs these as CSVs within `log_dir`.
+    See docstring of the other write_BA_stats function for descriptions of CSVs.
+    """
+    # Create directory for this run:
+    log_dir = Path(log_dir)
+    unique_run_ID = run_name_from_user + get_timestamp()
+    run_path = log_dir / "eval_stats" / unique_run_ID
+    run_path.mkdir(parents=True, exist_ok=True)
+
+    losing_teams = []
+    # Populate each trial-folder with CSVs:
+    for i, (losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df) in enumerate(iterate_BA_stats_eval_trials_given_trainer(run_path, trainer, env_config, policy_fn, num_trials=num_trials, gpu=gpu, save_viz=save_viz)):
+        print("Running/saving trial", i)
+        trial_path = run_path / ("trial_" + str(i))
+        trial_path.mkdir(exist_ok=True)
+        agent_attacks_df.to_csv((trial_path / "AGENT_ATTACKS_TEMPORAL.csv").resolve())
+        team_attacks_df.to_csv((trial_path / "TEAM_ATTACKS_ORDERED.csv").resolve())
+        team_hps_df.to_csv((trial_path / "TEAM_HPS_COMBINED_TEMPORAL.csv").resolve())
+        timeline_df.to_csv((trial_path / "ABSOLUTE_TIMELINE.csv").resolve())
+
+        losing_teams.append(losing_team)
+        # ideally we would save the vizes here as well (instead of within `collect_stats_from_eval` as we are now), but don't have enough time to do the refactoring
+    
+    losing_teams_series = [pd.Series(losing_teams, name="Losing Team")]
+    losing_team_df = pd.concat(losing_teams_series, axis=1)
+    losing_team_df.index.name = "Trial #"
+    losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
+
+
+#--------------------------------------------------
+# Running each of the exp 2 things against baseline
+# -------------------------------------------------
+def get_exp2_checkpoint_paths():
+    base_exp2_path = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
+    checkpoint120_path = "checkpoint_000120/checkpoint-120"
+    exp_2_chkpt_suffix_paths = {"baseline": "BASELINE_oldarch__ms19_cad08",
+                                "self-play": "SELFPLAY_120-iters__75eeb",
+                                "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
+                                "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+    exp_2_chkpt_suffix_paths = {suffix: base_exp2_path / pth / checkpoint120_path for suffix, pth in exp_2_chkpt_suffix_paths.items()}
+    return exp_2_chkpt_suffix_paths
+
+
+def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
+
+    checkpoint_paths = get_exp2_checkpoint_paths()
+    NON_baseline_chkpt_path = checkpoint_paths["self-play"]
+    baseline_chkpt_path = checkpoint_paths["baseline"]
+
+    if not Path(NON_baseline_chkpt_path).exists() or not Path(baseline_chkpt_path).exists(): 
+        raise Exception("checkpoint does not exist at path!")
+
+    run_name = "selfplay_vs_baseline" # timestamp will be added in stats fn
+     
+    # config set up
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
+    
+    # eval_config = {
+    #     "red_ckpt": str(baseline_chkpt_path),
+    #     "red_load": "red_shared",
+
+    #     "blue_ckpt": str(NON_baseline_chkpt_path),
+    #     "blue_load": policy_to_load,
+    # }
+    # log(logname, ["\neval_config = ", json.dumps(eval_config, indent=2)])
+
+    # Get weights from self play checkpoint
+    def get_selfplay_weights():
+        policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+        policy_fn = lambda *args, **kwargs: 'all'
+        self_play_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+
+        # get 'all' weights
+        temp_trainer = ppo.PPOTrainer(config=self_play_trainer_config)
+        temp_trainer.restore(str(NON_baseline_chkpt_path))
+        weights = temp_trainer.get_policy("all").get_weights()
+        temp_trainer.stop()
+
+        return weights
+
+    self_play_weights = get_selfplay_weights()
+
+
+    # Load baseline checkpoint, use its red policy as baseline. 
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    eval_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    eval_trainer_config["env_config"] = eval_env_config
+    eval_trainer = ppo.PPOTrainer(config=eval_trainer_config)
+    eval_trainer.restore(str(baseline_chkpt_path))
+
+    # Transfer self play policy weights to the blue of eval_trainer
+    eval_trainer.get_policy("blue_shared").set_weights(self_play_weights)
+
+    # and evaluate
+    write_BA_stats_CSVs_given_trainer(eval_trainer, log_dir, env_config, policy_fn, num_trials=n_trials, save_viz=True, gpu=False, run_name_from_user=run_name)
+
+
 
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
@@ -624,6 +741,7 @@ def all_experiment_1():
     env_config = {'map_size': 19}
     predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
 
+
 def main():
     # kwargs = parse_args()
     for env_name, env in env_directory.items():
@@ -654,10 +772,8 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    # exp2c_log_dir =  os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs/exp_2c')
-    slurm_sample_checkpoint = "/users/yh31/scratch/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/pretrained_checkpoint_000200/checkpoint-200"
-    get_stats_BA(gpu=False, checkpoint_path=slurm_sample_checkpoint)
-
+    run_selfplay_against_baseline(3000)
+    
     # ray_BA_training_share_randomized_retooled(test_mode=False)
     # print("Done with BA exp!")
     # ray_AP_training_share_randomized_retooled()
