@@ -167,97 +167,6 @@ def iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials = 100, gp
         losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, trial_path, save_viz=save_viz)
         yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df
 
-# (representative_trainer, env, env_config, policy_fn, log_dir, max_iter=2 ** 16, is_battle=True, eval_id="", save_viz=False)
-
-def write_BA_stats_CSVs(checkpoint_path, num_trials=2, save_viz=True, gpu=False, run_name_from_user=""):
-    """Gets the stats for Battle from a checkpoint including the number of attacks. 
-    Outputs these as CSVs within the checkpoint directory that is supplied.
-
-    - CSV descriptions (every trial has their own folder of CSVs):
-        1. "AGENT_ATTACKS_TEMPORAL.csv" - Cells are true/false for attack/not attack when it is that agent's turn.
-                Columns are specific agents, and columns correspond to a __time__ in the game. 
-                In other words, the actions corresponding all of the cells in any row form the only player-actions 
-                that occurred within some specific window of time (this window shortens as players are eliminated).
-
-        2. "TEAM_ATTACKS_ORDERED.csv" - Each column is an ordered boolean list representing the exact sequence of attack/not attack
-                decisions that a certain team made throughout the game. Note that when a team has more players than the other, it will 
-                have more attack opportunities per unit of time than the other team, so rows do not necessarily map to specific moments.
-
-        3. "TEAM_HPS_COMBINED_TEMPORAL.csv" - Each column is an ordered vector list represented each team's HP state
-                 __after any action from any agent__. Since all team's HP are written and read at the same time throughout the game, 
-                 the data has both temporal and ordered meaning. All of the HP values in any row correspond to the exact same moment in time.
-
-        4. "ABSOLUTE_TIMELINE.csv" - Logs what's happening at every iteration of the agent_iter loop. That is, each row consists of (i) the id of the agent whose turn it is, (ii) what action the agent took (if it died on that iteration, that’s recorded as “died”), and (iii) the scalar hps of the teams at that iteration. The index of this csv corresponds to the iteration idx of the agent_iter loop.
-
-    - Also, a "LOSING_TEAM_ACROSS_TRIALS.csv" exists in the upper directory that simply lists which team lost for each trial.
-    """
-    # Create directory for this run:
-    checkpoint_parent_path = Path(checkpoint_path).parent
-    unique_run_ID = run_name_from_user + get_timestamp()
-    run_path = checkpoint_parent_path / "eval_stats" / unique_run_ID
-    run_path.mkdir(parents=True, exist_ok=True)
-
-    losing_teams = []
-    # Populate each trial-folder with CSVs:
-    for i, (losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df) in enumerate(iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials=num_trials, gpu=gpu, save_viz=save_viz)):
-        print("Running/saving trial", i)
-        trial_path = run_path / ("trial_" + str(i))
-        trial_path.mkdir(exist_ok=True)
-        agent_attacks_df.to_csv((trial_path / "AGENT_ATTACKS_TEMPORAL.csv").resolve())
-        team_attacks_df.to_csv((trial_path / "TEAM_ATTACKS_ORDERED.csv").resolve())
-        team_hps_df.to_csv((trial_path / "TEAM_HPS_COMBINED_TEMPORAL.csv").resolve())
-        timeline_df.to_csv((trial_path / "ABSOLUTE_TIMELINE.csv").resolve())
-
-        losing_teams.append(losing_team)
-        # ideally we would save the vizes here as well (instead of within `collect_stats_from_eval` as we are now), but don't have enough time to do the refactoring
-    
-    losing_teams_series = [pd.Series(losing_teams, name="Losing Team")]
-    losing_team_df = pd.concat(losing_teams_series, axis=1)
-    losing_team_df.index.name = "Trial #"
-    losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
-
-
-# YM: I'm too sleepy to be able to think of the best abstractions, so just going to make adapted variants of the logging infrastructure for the evals we need to run
-
-def iterate_BA_stats_eval_trials_given_trainer(run_path, trainer, env_config, policy_fn, num_trials = 100, gpu = False, save_viz=True):
-    """*Given a trainer*, gets the stats for Battle including the number of attacks."""
-
-    for trial_i in range(num_trials):
-        trial_path = run_path / ("trial_" + str(trial_i))
-        losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df = collect_stats_from_eval(trainer, battle_v3, env_config, policy_fn, trial_path, save_viz=save_viz)
-        yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df
-
-
-def write_BA_stats_CSVs_given_trainer(trainer, log_dir, env_config, policy_fn, num_trials=2, save_viz=True, gpu=False, run_name_from_user=""):
-    """
-    *Given trainer*, gets the stats for Battle; outputs these as CSVs within `log_dir`.
-    See docstring of the other write_BA_stats function for descriptions of CSVs.
-    """
-    # Create directory for this run:
-    log_dir = Path(log_dir)
-    unique_run_ID = run_name_from_user + get_timestamp()
-    run_path = log_dir / "eval_stats" / unique_run_ID
-    run_path.mkdir(parents=True, exist_ok=True)
-
-    losing_teams = []
-    # Populate each trial-folder with CSVs:
-    for i, (losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df) in enumerate(iterate_BA_stats_eval_trials_given_trainer(run_path, trainer, env_config, policy_fn, num_trials=num_trials, gpu=gpu, save_viz=save_viz)):
-        print("Running/saving trial", i)
-        trial_path = run_path / ("trial_" + str(i))
-        trial_path.mkdir(exist_ok=True)
-        agent_attacks_df.to_csv((trial_path / "AGENT_ATTACKS_TEMPORAL.csv").resolve())
-        team_attacks_df.to_csv((trial_path / "TEAM_ATTACKS_ORDERED.csv").resolve())
-        team_hps_df.to_csv((trial_path / "TEAM_HPS_COMBINED_TEMPORAL.csv").resolve())
-        timeline_df.to_csv((trial_path / "ABSOLUTE_TIMELINE.csv").resolve())
-
-        losing_teams.append(losing_team)
-        # ideally we would save the vizes here as well (instead of within `collect_stats_from_eval` as we are now), but don't have enough time to do the refactoring
-    
-    losing_teams_series = [pd.Series(losing_teams, name="Losing Team")]
-    losing_team_df = pd.concat(losing_teams_series, axis=1)
-    losing_team_df.index.name = "Trial #"
-    losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
-
 
 # ------------------------------------------------------------
 # We are always comparing baseline against some other policy.
@@ -313,7 +222,7 @@ def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env
     eval_trainer.get_policy("blue_shared").set_weights(self_play_weights)
 
     # and evaluate
-    write_BA_stats_CSVs_given_trainer(eval_trainer, log_dir, env_config, policy_fn, num_trials=n_trials, save_viz=True, gpu=False, run_name_from_user=run_name)
+    write_BA_stats_CSVs(n_trials, eval_trainer, log_dir, env_config, policy_fn, save_viz=True, gpu=False, run_name_from_user=run_name)
 
 
 
@@ -773,7 +682,7 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    run_selfplay_against_baseline(3000)
+    run_selfplay_against_baseline(n_trials=3000) #(Eli): Yongming, can you actually run this many trials?
     
     # ray_BA_training_share_randomized_retooled(test_mode=False)
     # print("Done with BA exp!")
