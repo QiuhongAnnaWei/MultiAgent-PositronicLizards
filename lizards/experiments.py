@@ -127,13 +127,14 @@ def ray_experiment_BA_visualize(*args, gpu=True):
         # print(rewards)
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
-def iterate_BA_stats_eval_trials(checkpoint_path, num_trials = 100, log_dir=None, gpu = False):
+
+def iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials = 100, gpu = False, save_viz=True):
     """Gets the stats for Battle from a checkpoint including the number of attacks."""
 
     # Make sure valid log directory exists:
-    if log_dir is None:
-        log_dir = Path(checkpoint_path).parents[0]
-    if not log_dir.is_dir(): log_dir.mkdir()
+    # if log_dir is None:
+    #     log_dir = Path(checkpoint_path).parents[0]
+    # if not log_dir.is_dir(): log_dir.mkdir()
 
     # Initial environment settings:
     env_config = {"map_size": 19}
@@ -145,11 +146,14 @@ def iterate_BA_stats_eval_trials(checkpoint_path, num_trials = 100, log_dir=None
     representative_trainer = ppo.PPOTrainer(config=trainer_config)
     representative_trainer.restore(checkpoint_path)
 
-    for _ in range(num_trials):
-        losing_team, agent_attacks_df, team_attacks_df, team_hps_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, log_dir)
-        yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df
+    for trial_i in range(num_trials):
+        trial_path = run_path / ("trial_" + str(trial_i))
+        losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, trial_path, save_viz=save_viz)
+        yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df
 
-def write_BA_stats_CSVs(checkpoint_path, num_trials = 2, log_dir=None, gpu = False):
+# (representative_trainer, env, env_config, policy_fn, log_dir, max_iter=2 ** 16, is_battle=True, eval_id="", save_viz=False)
+
+def write_BA_stats_CSVs(checkpoint_path, num_trials=2, save_viz=True, gpu=False, run_name_from_user=""):
     """Gets the stats for Battle from a checkpoint including the number of attacks. 
     Outputs these as CSVs within the checkpoint directory that is supplied.
 
@@ -171,25 +175,29 @@ def write_BA_stats_CSVs(checkpoint_path, num_trials = 2, log_dir=None, gpu = Fal
     """
     # Create directory for this run:
     checkpoint_parent_path = Path(checkpoint_path).parent
-    unique_run_ID = "unique_id" # TO BE IMPLEMENTED BY YONGMING
-    run_path = checkpoint_parent_path / unique_run_ID
-    run_path.mkdir(exist_ok=True)
+    unique_run_ID = run_name_from_user + get_timestamp()
+    run_path = checkpoint_parent_path / "eval_stats" / unique_run_ID
+    run_path.mkdir(parents=True, exist_ok=True)
 
     losing_teams = []
     # Populate each trial-folder with CSVs:
-    for i, (losing_team, agent_attacks_df, team_attacks_df, team_hps_df) in enumerate(iterate_BA_stats_eval_trials(checkpoint_path, num_trials, log_dir, gpu)):
-        print("Running trial", i)
+    for i, (losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df) in enumerate(iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials=num_trials, gpu=gpu, save_viz=save_viz)):
+        print("Running/saving trial", i)
         trial_path = run_path / ("trial_" + str(i))
         trial_path.mkdir(exist_ok=True)
         agent_attacks_df.to_csv((trial_path / "AGENT_ATTACKS_TEMPORAL.csv").resolve())
         team_attacks_df.to_csv((trial_path / "TEAM_ATTACKS_ORDERED.csv").resolve())
         team_hps_df.to_csv((trial_path / "TEAM_HPS_COMBINED_TEMPORAL.csv").resolve())
+        timeline_df.to_csv((trial_path / "ABSOLUTE_TIMELINE.csv").resolve())
+
         losing_teams.append(losing_team)
+        # ideally we would save the vizes here as well (instead of within `collect_stats_from_eval` as we are now), but don't have enough time to do the refactoring
     
     losing_teams_series = [pd.Series(losing_teams, name="Losing Team")]
     losing_team_df = pd.concat(losing_teams_series, axis=1)
     losing_team_df.index.name = "Trial #"
     losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
+
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}

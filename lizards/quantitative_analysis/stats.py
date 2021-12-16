@@ -6,16 +6,22 @@ import numpy as np
 from collections import defaultdict
 import pandas as pd
 from pathlib import Path
+import pytz
 
-""" TO DOs:
-1. Replace print statements with an actual logger
-"""
 
-def save_eval_viz(save_dir, save_file_prefix, diff_frame_list, width, height):
-    save_dir = Path(save_dir)
 
-    mp4_save_path = str(save_dir.joinpath(f"{save_file_prefix}.mp4"))
-    gif_save_path = str(save_dir.joinpath(f"{save_file_prefix}.gif"))
+def get_timestamp():
+    tz = pytz.timezone('US/Eastern')
+    short_timestamp = datetime.now(tz).strftime("%H.%M.%S")
+    return short_timestamp
+
+
+def save_eval_viz(trial_path, diff_frame_list, width, height):
+
+    trial_path.mkdir(parents=True, exist_ok=True) 
+
+    get_path_str = lambda suffix: str((trial_path / suffix).resolve())
+    mp4_save_path, gif_save_path = get_path_str("viz.mp4"), get_path_str("viz.gif")
 
     print(f"# Saving gif to: {gif_save_path}")
     diff_frame_list[0].save(gif_save_path, save_all=True, append_images=diff_frame_list[1:], duration=100, loop=0)
@@ -25,8 +31,9 @@ def save_eval_viz(save_dir, save_file_prefix, diff_frame_list, width, height):
     for i, image in enumerate(diff_frame_list):
         video.write(cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
     for i in [0, len(diff_frame_list)-1]:
-        frame_path = str(save_dir.joinpath(f"{save_file_prefix}_{i}.jpg"))
+        frame_path = get_path_str(f"frame{i}.jpg")
         diff_frame_list[i].save(frame_path)
+
 
 def record_attacks(action, agent, team_attack_statuses, agent_attack_statuses, agent_to_team_func):
     agent_attacked =  (12 < action <= 20) # (Currently only recognizes battle attacks).
@@ -61,7 +68,7 @@ def record_hp(env_state, team_hp_values):
     team_hp_values["blue"].append(hp_blue)
 
 
-def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, log_dir, max_iter=2 ** 16, is_battle=True, eval_id="", save_viz=False):
+def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, trial_path, save_viz=False, is_battle=True, max_iter=2 ** 16):
     """
     Runs an eval and collects stats (attacks, hp) from it 
     eval_id is an id tt we can use to distinguish between eval runs
@@ -88,6 +95,21 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
     losing_team = None
     most_recent_done_agent = None # (informs the eventual value of losing_team).
 
+    timeline = defaultdict(dict)
+    # 'absolute' timeline 
+    # agent_iter idx =>  dict with keys agent, action, team_red_hp (scalar), team_blue_hp (scalar)
+
+    def log_action_to_timeline(iter_idx, action, agent_id):        
+        timeline_at_iter_idx = timeline[iter_idx]
+        timeline_at_iter_idx["agent_id"] = agent_id
+        timeline_at_iter_idx["action"] = action
+
+    def log_scalar_hps_to_timeline(iter_idx, env_state):
+        timeline_at_iter_idx = timeline[iter_idx]
+        timeline_at_iter_idx["hp_red"] = env_state[:,:,2].sum()
+        timeline_at_iter_idx["hp_blue"] = env_state[:,:,4].sum()
+
+
     # Loop through all agents until a team has lost:
     for i, agent in enumerate(env.agent_iter(max_iter=max_iter)):
         if i % 1000 == 0:
@@ -100,25 +122,31 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
         if done:
             curr_agent_action = None
             most_recent_done_agent = agent
+
+            log_action_to_timeline(i, "died", agent)
         else:
             # Find action for agent, from current policy and observation.
             curr_agent_policy = representative_trainer.get_policy(policy_fn(agent, None))
             batch_obs = { 'obs': np.expand_dims(observation, 0)} # (10,10,5) -> (1,10,10,5)
             batched_action, _, _ = curr_agent_policy.compute_actions_from_input_dict(batch_obs)
             curr_agent_action = batched_action[0]
+
             record_attacks(curr_agent_action, agent, team_attack_statuses, agent_attack_statuses, agent_to_team_func)
+            log_action_to_timeline(i, curr_agent_action, agent)
        
         # Get current state (or, if game is over via exception).
         env_state = None
         try:
             env_state = env.state() # (map_size, map_size, 5)
             record_hp(env_state, team_hp_values)
+            log_scalar_hps_to_timeline(i, env_state)
             # print("env_state", len(env_state))
         except Exception as e:
             print("Team has lost; indicated by exception:", e)
             print(f"\nAt {i}: one team eliminated - env.agents = {env.agents}")
             if losing_team is None:
                 losing_team = most_recent_done_agent.split("_")[0]
+
             break
             # I have no idea why `break` needs to be commented out when im running it
             # (Eli): I don't need to comment it out?
@@ -142,14 +170,15 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
 
     if save_viz: 
         # Stack each frame as a video:
-        save_eval_viz(log_dir, f"viz_{eval_id}", diff_frame_list, width, height)
+        save_eval_viz(trial_path, diff_frame_list, width, height)
 
     agent_attacks_df, team_attacks_df, team_hps_df = package_attacks_data(team_attack_statuses, agent_attack_statuses, team_hp_values)
+    timeline_df = pd.DataFrame.from_dict(timeline, orient='index')
 
     # print("red hps:", team_hp_values["red"][-1])
     # print("blue hps:", team_hp_values["blue"][-1])
     # log(f"{log_dir}.txt", f"attacks per agent {total_attacks_per_agent}") 
-    return losing_team, agent_attacks_df, team_attacks_df, team_hps_df
+    return losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df
 
 
 
