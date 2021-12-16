@@ -219,7 +219,7 @@ def write_BA_stats_CSVs(num_trials, trainer, log_dir, env_config, policy_fn, sav
     """
     # Create directory for this run:
     log_dir = Path(log_dir)
-    unique_run_ID = run_name_from_user + get_timestamp()
+    unique_run_ID = run_name_from_user + f"{num_trials}trials" + get_timestamp()
     run_path = log_dir / "eval_stats" / unique_run_ID
     run_path.mkdir(parents=True, exist_ok=True)
 

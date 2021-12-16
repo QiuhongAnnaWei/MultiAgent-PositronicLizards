@@ -46,16 +46,23 @@ env_spaces = {'adversarial-pursuit':
 
 EXP2_BASE_PATH = Path("/Users/eli/Downloads/MultiAgent-PositronicLizards/lizards/downloaded_checkpoints/")
 EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "PPO_battle_oldarch__ms19_cad08", # (this mirrors Google drive filenenames, compared to below)
-                            "self-play": "PPO_battle_self-play_120-iters__75eeb",
+                            "self-play": "PPO_battleself-play-ms19_120-iters_ms19_c6f6a", # YM: changed this to the right checkpoint. Sorry about using the wrong one before.
                             "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
                             "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
-# EXP2_BASE_PATH = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
-# EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "BASELINE_oldarch__ms19_cad08",
-#                             "self-play": "SELFPLAY_120-iters__75eeb",
-#                             "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
-#                             "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+
 EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
 EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
+
+def get_YM_chkpt_paths():
+    EXP2_BASE_PATH = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
+    EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "BASELINE_oldarch__ms19_cad08",
+                                "self-play": "SELF-PLAY-ms19_120-iters_ms19_c6f6a",
+                                "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
+                                "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+    EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
+    EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
+    return EXP2_FULL_SUFFIX_CHECKPOINT_PATHS
+
 
 class TeamPolicyConfig:
     def __init__(self, team_name, method='shared', count=None, random_action_team=False):
@@ -172,6 +179,7 @@ def iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials = 100, gp
 # We are always comparing baseline against some other policy.
 # ------------------------------------------------------------
 def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
+    EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = get_YM_chkpt_paths()
     baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["baseline"]
     NON_baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["self-play"]
 
@@ -199,7 +207,7 @@ def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env
         policy_fn = lambda *args, **kwargs: 'all'
         self_play_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
 
-        # get 'all' weights
+        # get weights from the policy named 'all' 
         temp_trainer = ppo.PPOTrainer(config=self_play_trainer_config)
         temp_trainer.restore(str(NON_baseline_chkpt_path))
         weights = temp_trainer.get_policy("all").get_weights()
@@ -682,7 +690,9 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    run_selfplay_against_baseline(n_trials=3000) #(Eli): Yongming, can you actually run this many trials?
+    run_selfplay_against_baseline(n_trials=800) 
+    #(Eli): Yongming, can you actually run this many trials? [Eli was referring to 3_000]
+    # YM: I ran it over night. I think it took like 5 hours? I had set a high figure on a whim.
     
     # ray_BA_training_share_randomized_retooled(test_mode=False)
     # print("Done with BA exp!")
