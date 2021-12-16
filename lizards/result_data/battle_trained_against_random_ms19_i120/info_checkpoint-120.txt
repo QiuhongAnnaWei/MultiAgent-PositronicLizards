@@ -1,0 +1,4 @@
+This corresponds to the ray results dir: PPO_battle_train_against_rand_2021-12-11_00-59-37gdgullao
+
+# Saving gif to: logs/PPO_battle_120-iters_ms19_bcdcc/checkpoint_000120/checkpoint-120.gif
+# Saving video to: logs/PPO_battle_120-iters_ms19_bcdcc/checkpoint_000120/checkpoint-120.mp4

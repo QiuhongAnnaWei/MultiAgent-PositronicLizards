@@ -1,6 +1,7 @@
 import os
 
 from main_utils import *
+from quantitative_analysis.stats import *
 # from stable_baselines3 import PPO
 from pettingzoo.magent import adversarial_pursuit_v3, tiger_deer_v3, battle_v3, battlefield_v3, combined_arms_v5
 import ray.rllib.agents.ppo as ppo
@@ -18,6 +19,7 @@ import argparse
 import uuid
 from itertools import product
 from datetime import datetime
+from pathlib import Path
 
 env_directory = {'adversarial-pursuit': adversarial_pursuit_v3, 'tiger-deer': tiger_deer_v3, 'battle': battle_v3,
                  'battlefield': battlefield_v3, "combined-arms": combined_arms_v5}
@@ -38,6 +40,28 @@ env_spaces = {'adversarial-pursuit':
                   {'action_space': Discrete(25),
                    'obs_space': Box(low=0.0, high=2.0, shape=(13, 13, 9), dtype=np.float32)}
               }
+
+
+# (Filestructure constants for checkpoint analysis)
+
+EXP2_BASE_PATH = Path("/Users/eli/Downloads/MultiAgent-PositronicLizards/lizards/downloaded_checkpoints/")
+EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "PPO_battle_oldarch__ms19_cad08", # (this mirrors Google drive filenenames, compared to below)
+                            "self-play": "PPO_battleself-play-ms19_120-iters_ms19_c6f6a", # YM: changed this to the right checkpoint. Sorry about using the wrong one before.
+                            "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
+                            "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+
+EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
+EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
+
+def get_YM_chkpt_paths():
+    EXP2_BASE_PATH = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
+    EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "BASELINE_oldarch__ms19_cad08",
+                                "self-play": "SELF-PLAY-ms19_120-iters_ms19_c6f6a",
+                                "pretrained": "PRETRAINED-cad08_120-iters__cd1c3",
+                                "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
+    EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
+    EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
+    return EXP2_FULL_SUFFIX_CHECKPOINT_PATHS
 
 
 class TeamPolicyConfig:
@@ -127,6 +151,89 @@ def ray_experiment_BA_visualize(*args, gpu=True):
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
 
+def iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials = 100, gpu = False, save_viz=True):
+    """Gets the stats for Battle from a checkpoint including the number of attacks."""
+
+    # Make sure valid log directory exists:
+    # if log_dir is None:
+    #     log_dir = Path(checkpoint_path).parents[0]
+    # if not log_dir.is_dir(): log_dir.mkdir()
+
+    # Initial environment settings:
+    env_config = {"map_size": 19}
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')] #
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data) #
+
+    # Create representative trainer from settings/checkpoint:
+    trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
+    representative_trainer = ppo.PPOTrainer(config=trainer_config)
+    representative_trainer.restore(checkpoint_path)
+
+    for trial_i in range(num_trials):
+        trial_path = run_path / ("trial_" + str(trial_i))
+        losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, trial_path, save_viz=save_viz)
+        yield losing_team, agent_attacks_df, team_attacks_df, team_hps_df, timeline_df
+
+
+# ------------------------------------------------------------
+# We are always comparing baseline against some other policy.
+# ------------------------------------------------------------
+def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
+    EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = get_YM_chkpt_paths()
+    baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["baseline"]
+    NON_baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["self-play"]
+
+    if not Path(NON_baseline_chkpt_path).exists() or not Path(baseline_chkpt_path).exists(): 
+        raise Exception("checkpoint does not exist at path!")
+
+    run_name = "selfplay_vs_baseline" # timestamp will be added in stats fn
+
+    # config set up
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
+    
+    # eval_config = {
+    #     "red_ckpt": str(baseline_chkpt_path),
+    #     "red_load": "red_shared",
+
+    #     "blue_ckpt": str(NON_baseline_chkpt_path),
+    #     "blue_load": policy_to_load,
+    # }
+    # log(logname, ["\neval_config = ", json.dumps(eval_config, indent=2)])
+
+    # Get weights from self play checkpoint
+    def get_selfplay_weights():
+        policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+        policy_fn = lambda *args, **kwargs: 'all'
+        self_play_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+
+        # get weights from the policy named 'all' 
+        temp_trainer = ppo.PPOTrainer(config=self_play_trainer_config)
+        temp_trainer.restore(str(NON_baseline_chkpt_path))
+        weights = temp_trainer.get_policy("all").get_weights()
+        temp_trainer.stop()
+
+        return weights
+
+    self_play_weights = get_selfplay_weights()
+
+
+    # Load baseline checkpoint, use its red policy as baseline. 
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    eval_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    eval_trainer_config["env_config"] = eval_env_config
+    eval_trainer = ppo.PPOTrainer(config=eval_trainer_config)
+    eval_trainer.restore(str(baseline_chkpt_path))
+
+    # Transfer self play policy weights to the blue of eval_trainer
+    eval_trainer.get_policy("blue_shared").set_weights(self_play_weights)
+
+    # and evaluate
+    write_BA_stats_CSVs(n_trials, eval_trainer, log_dir, env_config, policy_fn, save_viz=True, gpu=False, run_name_from_user=run_name)
+
+
+
 def ray_experiment_AP_training_share_split(*args, gpu=True):
     env_config = {"map_size": 30}
     predator_count = get_num_agents(adversarial_pursuit_v3, env_config)['predator']
@@ -153,9 +260,13 @@ def ray_experiment_BA_training_share_split(*args, gpu=True):
     checkpoint = train_ray_trainer(trainer, num_iters=100, log_intervals=20, log_dir=log_dir)
 
 
-def ray_train_generic(*args, end_render=True, savefile=False, policy_log_str=None, **kwargs):
+def ray_train_generic(*args, end_render=True, savefile=False, policy_log_str=None, test_mode=False, **kwargs):
     trainer_config = get_trainer_config(kwargs['env_name'], kwargs['policy_dict'], kwargs['policy_fn'],
-                                        kwargs['env_config'], gpu=kwargs['gpu'])
+                                        kwargs['env_config'], gpu=kwargs['gpu'], num_workers=kwargs.get('num_workers', 1))
+    if test_mode: 
+        trainer_config["train_batch_size"] = 1000
+    print(f"trainer_config is {trainer_config}")
+
     trainer = ppo.PPOTrainer(config=trainer_config)
 
     if policy_log_str is None:
@@ -166,8 +277,9 @@ def ray_train_generic(*args, end_render=True, savefile=False, policy_log_str=Non
 
     checkpoint = train_ray_trainer(trainer, num_iters=kwargs['train_iters'], log_intervals=kwargs['log_intervals'], log_dir=log_dir)
 
+    is_battle = True if kwargs['env_name'] == "battle" else False
     if end_render:
-        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=savefile)
+        render_from_checkpoint(checkpoint, trainer, env_directory[kwargs['env_name']], kwargs['env_config'], kwargs['policy_fn'], max_iter=10000, savefile=savefile, is_battle=is_battle)
     return checkpoint, trainer
 
 
@@ -275,7 +387,7 @@ def ray_BA_training_share_split_retooled():
         checkpoint='/home/ben/Code/MultiAgent-PositronicLizards/lizards/logs/PPO_battle_red-split_120-iters__3914d/checkpoint_000120/checkpoint-120',
         **kwargs)
 
-def ray_BA_training_share_randomized_retooled():
+def ray_BA_training_share_randomized_retooled(test_mode=False):
     env_name = 'battle'
     env_config = {'map_size': 19}
     team_data = [TeamPolicyConfig('red', random_action_team=True),
@@ -287,12 +399,15 @@ def ray_BA_training_share_randomized_retooled():
         'env_config': env_config,
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
-        'train_iters': 200,
-        'log_intervals': 40,
-        'gpu': False
+        'train_iters': 120,
+        'log_intervals': 30,
+        'gpu': False,
     }
 
-    ray_train_generic(**kwargs, end_render=True)
+    if test_mode: 
+        kwargs['train_iters']=1
+
+    ray_train_generic(**kwargs, test_mode=test_mode, savefile=True, end_render=True)
 
 def ray_TD_training_share_split_retooled():
     env_config = {'map_size': 30}
@@ -341,9 +456,9 @@ def ray_AP_training_share_split_retooled():
         **kwargs)
 
 
-def ray_AP_training_share_randomized_retooled():
+def ray_AP_training_share_randomized_retooled(test_mode=False):
     env_name = 'adversarial-pursuit'
-    env_config = {'map_size': 40}
+    env_config = {'map_size': 19} # making this the same as in `ray_AP_training_share_split_retooled`
     team_data = [TeamPolicyConfig('predator', random_action_team=True), TeamPolicyConfig('prey')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
     kwargs = {
@@ -353,11 +468,11 @@ def ray_AP_training_share_randomized_retooled():
         'policy_dict': policy_dict,
         'policy_fn': policy_fn,
         'train_iters': 120,
-        'log_intervals': 20,
+        'log_intervals': 30,
         'gpu': True
     }
 
-    ray_train_generic(**kwargs, end_render=True)
+    ray_train_generic(**kwargs, test_mode=test_mode, savefile=True, end_render=True)
 
 
 def ray_CA_red_split_blue_shared_TEST(map_size=16, train_iters=8, log_intervals=2):
@@ -543,39 +658,6 @@ def all_experiment_1():
     env_name = 'adversarial-pursuit'
     env_config = {'map_size': 19}
     predator_count = get_num_agents(env_directory[env_name], env_config)['predator']
-    team_data = [TeamPolicyConfig('predator', method='split', count=predator_count), TeamPolicyConfig('prey')]
-    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
-    kwargs = {
-        'env_name': env_name,
-        'team_data': team_data,
-        'env_config': env_config,
-        'policy_dict': policy_dict,
-        'policy_fn': policy_fn,
-        'train_iters': 120,
-        'log_intervals': 20,
-        'gpu': True
-    }
-    ray_train_generic(**kwargs, end_render=True)
-
-    # # Shared-shared Asymmetric TD
-    # env_config = {'map_size': 19}
-    # # tiger_count = get_num_agents(tiger_deer_v3, env_config)['tiger']
-    # team_data = [TeamPolicyConfig('tiger'), TeamPolicyConfig('deer')]
-    # policy_dict, policy_fn = get_policy_config(**env_spaces['tiger-deer'], team_data=team_data)
-    # kwargs = {
-    #     'env_name': 'tiger-deer',
-    #     'team_data': team_data,
-    #     'env_config': env_config,
-    #     'policy_dict': policy_dict,
-    #     'policy_fn': policy_fn,
-    #     'train_iters': 120,
-    #     'log_intervals': 20,
-    #     'gpu': True
-    # }
-    # ray_train_generic(**kwargs)
-
-    # Shared-shared Symmetric CA
-    # ray_CA_generalized()
 
 
 def main():
@@ -603,9 +685,19 @@ def main():
     # ray_AP_training_share_split_retooled()
 
     # Randomized experiments
-    ray_BA_training_share_randomized_retooled()
-    ray_AP_training_share_randomized_retooled()
-    print("\nDONE")
+    #ray_BA_training_share_randomized_retooled(test_mode=False)
+    #print("Done with BA exp!")
+    # ray_AP_training_share_randomized_retooled()
+    # print("\nDONE")
+
+    run_selfplay_against_baseline(n_trials=800) 
+    #(Eli): Yongming, can you actually run this many trials? [Eli was referring to 3_000]
+    # YM: I ran it over night. I think it took like 5 hours? I had set a high figure on a whim.
+    
+    # ray_BA_training_share_randomized_retooled(test_mode=False)
+    # print("Done with BA exp!")
+    # ray_AP_training_share_randomized_retooled()
+    # print("\nDONE")
 
 
 if __name__ == "__main__":

@@ -15,15 +15,15 @@ convs = {"adversarial-pursuit": [[13, 10, 1]],
          "tiger-deer": [[9, 9, 1]],
          "combined-arms": [[25, 13, 1]]}
 
-def BattleTrainerRandom(*args, map_size=19, num_iters = 120):
+def BattleTrainerRandom(*args, map_size=19):
     """
     Begins the Training on the Battle Trainer
     """
     env_name = "battle"
 
-    training_setup = {"num_iters": num_iters, 
-                     "log_intervals": 20,
-                     "log_dir": 'logs/BA_randomized'}
+    # training_setup = {"num_iters": num_iters, 
+    #                  "log_intervals": 20,
+    #                  "log_dir": 'logs/BA_randomized'}
 
     env_config = {'map_size': map_size} 
     action_space, obs_space = env_spaces[env_name]["action_space"], env_spaces[env_name]["obs_space"]
@@ -44,12 +44,13 @@ def BattleTrainerRandom(*args, map_size=19, num_iters = 120):
             "conv_filters": convs[env_name]
         },
         "env_config": env_config,
+        "num_workers": 4,
         "create_env_on_driver": True, # potentially disable this?
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
     }
 
-    ray_trainer_config["train_batch_size"] = 2000
-    tune.run(ppo.PPOTrainer, config = ray_trainer_config)
+    # ray_trainer_config["train_batch_size"] = 2000
+    tune.run(ppo.PPOTrainer, name="red_train_against_blue_rand_120iters_mapsz19_battle", keep_checkpoints_num=3, config = ray_trainer_config, stop={"training_iteration": 120})
 
 
 if __name__ == "__main__":
