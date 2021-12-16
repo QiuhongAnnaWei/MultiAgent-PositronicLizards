@@ -93,7 +93,7 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
     team_attack_statuses = defaultdict(list)
     team_hp_values = defaultdict(list)
     losing_team = None
-    most_recent_done_agent = None # (informs the eventual value of losing_team).
+    team_elim_counts = defaultdict(int) # (informs the eventual value of losing_team).
 
     timeline = defaultdict(dict)
     # 'absolute' timeline 
@@ -121,7 +121,7 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
 
         if done:
             curr_agent_action = None
-            most_recent_done_agent = agent
+            team_elim_counts[agent.split("_")[0]] += 1
 
             log_action_to_timeline(i, "died", agent)
         else:
@@ -145,8 +145,8 @@ def collect_stats_from_eval(representative_trainer, env, env_config, policy_fn, 
             print("Team has lost; indicated by exception:", e)
             print(f"\nAt {i}: one team eliminated - env.agents = {env.agents}")
             if losing_team is None:
-                losing_team = most_recent_done_agent.split("_")[0]
-
+                # A bit of a hack, but the losing team should be the team that had the most agents die.
+                losing_team = sorted([(-1*count, team) for team, count in team_elim_counts.items()])[0][1]
             break
             # I have no idea why `break` needs to be commented out when im running it
             # (Eli): I don't need to comment it out?
