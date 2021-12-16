@@ -1,3 +1,4 @@
+from typing import Iterator
 from main_utils import *
 import ray.rllib.agents.ppo as ppo
 import supersuit as ss
@@ -241,15 +242,35 @@ def write_BA_stats_CSVs(num_trials, trainer, log_dir, env_config, policy_fn, sav
     losing_team_df.index.name = "Trial #"
     losing_team_df.to_csv((run_path / "LOSING_TEAM_ACROSS_TRIALS.csv").resolve())
 
-# Will prob move this df-making code out once I add the HP code
-# make the df; using the concat method coz arrays not of same len
 
-# list_of_atks_across_timesteps_per_agent_series = [pd.Series(atks_across_timesteps, name=agent_nm) for agent_nm, atks_across_timesteps in agent_attack_statuses.items()]
-# attacks_df = pd.concat(list_of_atks_across_timesteps_per_agent_series, axis=1)
-# attacks_df.index.name = "Timesteps"
+############
+# GRAPHING #
+############
 
-# if save_df:
-#     df_csv_savepath = log_dir.joinpath("attacks_data.csv")
-#     attacks_df.to_csv(df_csv_savepath)
-#     print(f"attacks df saved at {df_csv_savepath}")
+def find_attack_prob_with_team_progress(team_attacks_arrs: Iterator[np.array]):
+    total_attack_opportunities_per_timestep = defaultdict(int)
+    total_attacks_per_timestep = defaultdict(int)
+    for team_attack_arr in team_attacks_arrs:
+        for i, attacked in team_attack_arr:
+            total_attack_opportunities_per_timestep[i] += 1
+            if attacked:
+                total_attacks_per_timestep[i] += 1
+    xs = list(sorted(total_attack_opportunities_per_timestep.keys()))
+    ys = [(total_attacks_per_timestep[x] / total_attack_opportunities_per_timestep[x]) for x in xs]
+    return np.array(xs), np.array(ys)
 
+def find_attack_prob_with_overall_progress(list_of_attacks_list: Iterator[Iterator[np.array]]):
+    total_attack_opportunities_per_timestep = defaultdict(int)
+    total_attacks_per_timestep = defaultdict(int)
+    for attacks_list in list_of_attacks_list:
+        for agent_attacks_arr in attacks_list:
+            for i, attacked in agent_attacks_arr:
+                total_attack_opportunities_per_timestep[i] += 1
+                if attacked:
+                    total_attacks_per_timestep[i] += 1
+    xs = list(sorted(total_attack_opportunities_per_timestep.keys()))
+    ys = [(total_attacks_per_timestep[x] / total_attack_opportunities_per_timestep[x]) for x in xs]
+    return np.array(xs), np.array(ys)
+
+def render_graph(out_filepath, team1_xs, team2_xs, team1_ys, team2_ys, team1_name, team2_name, x_title, y_title, graph_title):
+    pass
