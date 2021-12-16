@@ -127,24 +127,31 @@ def ray_experiment_BA_visualize(*args, gpu=True):
         # print(rewards)
         render_from_checkpoint(checkpoint, trainer, battle_v3, env_config, policy_fn)
 
-def get_stats_BA(*args, log_dir=None, gpu = False, checkpoint_path=None):
-    # Gets the stats for Battle from a checkpoint including the number of attacks.
+def get_stats_BA(*args, checkpoint_path, log_dir=None, gpu = False):
+    """Gets the stats for Battle from a checkpoint including the number of attacks."""
 
-    # 1. Init env
+    # Make sure valid log directory exists:
+    if log_dir is None:
+        log_dir = Path(checkpoint_path).parents[0]
+    if not log_dir.is_dir(): log_dir.mkdir()
+
+    # Initial environment settings:
     env_config = {"map_size": 19}
-    red_count = get_num_agents(battle_v3, env_config)['red']
-    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')] #
+    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data) #
 
-    policy_dict, policy_fn = get_policy_config(**env_spaces['battle'], team_data=team_data)
+    # Create representative trainer from settings/checkpoint:
     trainer_config = get_trainer_config('battle', policy_dict, policy_fn, env_config, gpu=gpu)
-    trainer = ppo.PPOTrainer(config=trainer_config)
+    representative_trainer = ppo.PPOTrainer(config=trainer_config)
+    representative_trainer.restore(checkpoint_path)
 
-    
-    # 2. Run eval and collect stats
-    if checkpoint_path:
-        losing_team, attacks_data, hp_data = collect_stats_from_eval(checkpoint_path, trainer, battle_v3, env_config, policy_fn)
-        return losing_team, attacks_data, hp_data
-        # TO DO: Add saving to csv etc functionality 
+    # Run eval and collect stats:
+    losing_team, agent_attacks_df, team_attacks_df, team_hps_df = collect_stats_from_eval(representative_trainer, battle_v3, env_config, policy_fn, log_dir)
+    # agent_attacks_df.to_csv("agent_attacks_test.csv")
+    # team_attacks_df.to_csv("team_attacks_test.csv")
+    # team_hps_df.to_csv("hp_test.csv")
+    return losing_team, agent_attacks_df, team_attacks_df
+    # TO DO: Add saving to csv etc functionality 
         
 
 def ray_experiment_AP_training_share_split(*args, gpu=True):
