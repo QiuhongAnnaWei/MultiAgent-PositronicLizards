@@ -53,7 +53,7 @@ EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "PPO_battle_oldarch__ms19_cad08", # 
 EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
 EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
 
-def get_YM_chkpt_paths():
+def get_all_YM_chkpt_paths():
     EXP2_BASE_PATH = Path("/gpfs/scratch/yh31/projects/MultiAgent-PositronicLizards/lizards/saved_checkpoints/for_evals/")
     EXP2_CHECKPOINT_SUFFIX_TO_DIR= {"baseline": "BASELINE_oldarch__ms19_cad08",
                                 "self-play": "SELF-PLAY-ms19_120-iters_ms19_c6f6a",
@@ -61,7 +61,16 @@ def get_YM_chkpt_paths():
                                 "random":  "VS_RANDOM_train_time_2h/PPO_battle_120-iters_ms19_bcdcc"}
     EXP2_CHECKPOINT_FILE = "checkpoint_000120/checkpoint-120"
     EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = {suffix: EXP2_BASE_PATH / pth / EXP2_CHECKPOINT_FILE for suffix, pth in EXP2_CHECKPOINT_SUFFIX_TO_DIR.items()}
+
     return EXP2_FULL_SUFFIX_CHECKPOINT_PATHS
+
+def get_YM_chkpt_paths(non_baseline):
+    EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = get_all_YM_chkpt_paths()
+    baselinepath, non_baseline_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["baseline"], EXP2_FULL_SUFFIX_CHECKPOINT_PATHS[non_baseline] 
+    return baselinepath, non_baseline_path
+
+
+
 
 
 class TeamPolicyConfig:
@@ -179,9 +188,7 @@ def iterate_BA_stats_eval_trials(run_path, checkpoint_path, num_trials = 100, gp
 # We are always comparing baseline against some other policy.
 # ------------------------------------------------------------
 def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
-    EXP2_FULL_SUFFIX_CHECKPOINT_PATHS = get_YM_chkpt_paths()
-    baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["baseline"]
-    NON_baseline_chkpt_path = EXP2_FULL_SUFFIX_CHECKPOINT_PATHS["self-play"]
+    baseline_chkpt_path, NON_baseline_chkpt_path = get_YM_chkpt_paths("self-play")
 
     if not Path(NON_baseline_chkpt_path).exists() or not Path(baseline_chkpt_path).exists(): 
         raise Exception("checkpoint does not exist at path!")
@@ -217,7 +224,6 @@ def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env
 
     self_play_weights = get_selfplay_weights()
 
-
     # Load baseline checkpoint, use its red policy as baseline. 
     team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
     policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
@@ -231,6 +237,164 @@ def run_selfplay_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env
 
     # and evaluate
     write_BA_stats_CSVs(n_trials, eval_trainer, log_dir, env_config, policy_fn, save_viz=True, gpu=False, run_name_from_user=run_name)
+
+
+def run_pretrained_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
+    baseline_chkpt_path, NON_baseline_chkpt_path = get_YM_chkpt_paths("pretrained")
+
+    if not Path(NON_baseline_chkpt_path).exists() or not Path(baseline_chkpt_path).exists(): 
+        raise Exception("checkpoint does not exist at path!")
+
+    run_name = "pretrained_vs_baseline" 
+
+    # config set up
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
+    
+    # eval_config = {
+    #     "red_ckpt": str(baseline_chkpt_path),
+    #     "red_load": "red_shared",
+
+    #     "blue_ckpt": str(NON_baseline_chkpt_path),
+    #     "blue_load": policy_to_load,
+    # }
+    # log(logname, ["\neval_config = ", json.dumps(eval_config, indent=2)])
+
+    # Get weights for the red ('from-scratch') policy from 'pretrained' checkpoint
+    # (The pretrained exp was: red was trained from scratch against a blue that had alrdy been trained for 40 iters
+    def get_red_weights_from_pretrained():
+        team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+        policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+        pt_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+
+        # get weights from the policy named 'red_shared' 
+        temp_trainer = ppo.PPOTrainer(config=pt_trainer_config)
+        temp_trainer.restore(str(NON_baseline_chkpt_path))
+        weights = temp_trainer.get_policy("red_shared").get_weights()
+        temp_trainer.stop()
+
+        return weights
+
+    red_from_pt_weights = get_red_weights_from_pretrained()
+
+
+    # Load baseline checkpoint, use its red policy as baseline. 
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    eval_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    eval_trainer_config["env_config"] = eval_env_config
+    eval_trainer = ppo.PPOTrainer(config=eval_trainer_config)
+    eval_trainer.restore(str(baseline_chkpt_path))
+
+    # Transfer the other policy weights to the blue of eval_trainer
+    eval_trainer.get_policy("blue_shared").set_weights(red_from_pt_weights)
+
+    # and evaluate
+    write_BA_stats_CSVs(n_trials, eval_trainer, log_dir, env_config, policy_fn, save_viz=True, gpu=False, run_name_from_user=run_name)
+
+
+def run_rand_trained_pol_against_baseline(n_trials, log_dir="logs/evals", gpu=False, env_name="battle"):
+    
+    cp_path_id="random"
+    run_name = "randtrained_vs_baseline" 
+    
+    baseline_chkpt_path, NON_baseline_chkpt_path = get_YM_chkpt_paths(cp_path_id)
+
+    if not Path(NON_baseline_chkpt_path).exists() or not Path(baseline_chkpt_path).exists(): 
+        raise Exception("checkpoint does not exist at path!")
+
+    # config set up
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
+    
+    # eval_config = {
+    #     "red_ckpt": str(baseline_chkpt_path),
+    #     "red_load": "red_shared",
+
+    #     "blue_ckpt": str(NON_baseline_chkpt_path),
+    #     "blue_load": policy_to_load,
+    # }
+    # log(logname, ["\neval_config = ", json.dumps(eval_config, indent=2)])
+
+    # Get weights for policy that was trained against random ('blue' was the non-random one)
+    def get_other_weights():
+        team_data_for_random = [TeamPolicyConfig('red', random_action_team=True),
+                                TeamPolicyConfig('blue')]
+        policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data_for_random)
+        trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+
+        # get weights from the policy named 'blue_shared' 
+        temp_trainer = ppo.PPOTrainer(config=trainer_config)
+        temp_trainer.restore(str(NON_baseline_chkpt_path))
+        weights = temp_trainer.get_policy("blue_shared").get_weights()
+        temp_trainer.stop()
+
+        return weights
+
+    weights_of_policy_tt_was_trained_against_random = get_other_weights()
+
+
+    # Load baseline checkpoint, use its red policy as baseline. 
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    eval_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+    eval_trainer_config["env_config"] = eval_env_config
+    eval_trainer = ppo.PPOTrainer(config=eval_trainer_config)
+    eval_trainer.restore(str(baseline_chkpt_path))
+
+    # Transfer the other policy weights to the blue of eval_trainer
+    eval_trainer.get_policy("blue_shared").set_weights(weights_of_policy_tt_was_trained_against_random)
+
+    # and evaluate
+    write_BA_stats_CSVs(n_trials, eval_trainer, log_dir, env_config, policy_fn, save_viz=True, gpu=False, run_name_from_user=run_name)
+
+
+def run_self_play_against_pretrained(n_trials, log_dir="logs/evals", gpu=False):
+    run_name = "selfplay_vs_pretrained" 
+
+    # get checkpoint paths
+    checkpoint_path_dict = get_all_YM_chkpt_paths
+    selfplay_cp_path, pretrained_cp_path = checkpoint_path_dict["self-play"], checkpoint_path_dict["pretrained"]
+    if not Path(selfplay_cp_path).exists() or not Path(pretrained_cp_path).exists(): 
+            raise Exception("checkpoint does not exist at path!")
+
+    # config set up
+    env_name="battle"
+    env_config = {'map_size': 19}
+    eval_env_config = {'map_size': 19}
+
+    # Get weights from self play checkpoint
+    def get_selfplay_weights():
+        policy_dict = {'all': (None, env_spaces[env_name]['obs_space'], env_spaces[env_name]['action_space'], dict())}
+        policy_fn = lambda *args, **kwargs: 'all'
+        self_play_trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+
+        # get weights from the policy named 'all' 
+        temp_trainer = ppo.PPOTrainer(config=self_play_trainer_config)
+        temp_trainer.restore(str(selfplay_cp_path))
+        weights = temp_trainer.get_policy("all").get_weights()
+        temp_trainer.stop()
+
+        return weights
+
+    self_play_weights = get_selfplay_weights()
+
+
+    # Set up evaluator trainer; note that 'red_shared' is the policy tt was trained from scratch
+    team_data = [TeamPolicyConfig('red'), TeamPolicyConfig('blue')]
+    policy_dict, policy_fn = get_policy_config(**env_spaces[env_name], team_data=team_data)
+    trainer_config = get_trainer_config(env_name, policy_dict, policy_fn, env_config, gpu=gpu)
+
+    eval_trainer = ppo.PPOTrainer(config=trainer_config)
+    eval_trainer.restore(str(pretrained_cp_path))
+
+    # Set the blue policy of eval_trainer to the self play policy, so tt we have 'from scratch' playing against 'self play'
+    eval_trainer.get_policy("blue_shared").set_weights(self_play_weights)
+
+    # and evaluate
+    write_BA_stats_CSVs(n_trials, eval_trainer, log_dir, env_config, policy_fn, save_viz=True, gpu=False, run_name_from_user=run_name)
+
+
 
 
 
@@ -690,10 +854,12 @@ def main():
     # ray_AP_training_share_randomized_retooled()
     # print("\nDONE")
 
-    run_selfplay_against_baseline(n_trials=800) 
+    # run_selfplay_against_baseline(n_trials=800) 
     #(Eli): Yongming, can you actually run this many trials? [Eli was referring to 3_000]
     # YM: I ran it over night. I think it took like 5 hours? I had set a high figure on a whim.
     
+    run_self_play_against_pretrained(n_trials=500) 
+
     # ray_BA_training_share_randomized_retooled(test_mode=False)
     # print("Done with BA exp!")
     # ray_AP_training_share_randomized_retooled()
