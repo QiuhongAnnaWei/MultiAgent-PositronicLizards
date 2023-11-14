@@ -52,6 +52,8 @@ Contribution guidelines:
 * Update the requirements.txt
 * Update the README as necessary
 
+<!--
+
 ***
 ## Logs
 
@@ -69,3 +71,4 @@ Contribution guidelines:
 * Followed [this TowardsDataScience article](https://towardsdatascience.com/multi-agent-deep-reinforcement-learning-in-15-lines-of-code-using-pettingzoo-e0b963c0820b) for some healthy boilerplate.
   * Can now train PPO agents on [Battle](https://www.pettingzoo.ml/magent/battle) and [Battlefield](https://www.pettingzoo.ml/magent/battlefield) environments and observe their policies.
 * Set up `main_utils.py` and boilerplate `experiments.py`
+-->
